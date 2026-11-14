@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+*.env
+.env*
+fixtures/private/
+devlog/footage/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+circuits/**/target/
+.uhv/
+*.key
+*.pem
+!fixtures/public/*.pub.pem

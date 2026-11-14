@@ -1,0 +1,7 @@
+[package]
+name = "commit"
+type = "bin"
+compiler_version = ">=1.0.0"
+
+[dependencies]
+rplib = { path = "../rplib" }

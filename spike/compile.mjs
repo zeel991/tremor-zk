@@ -1,0 +1,10 @@
+import { compile_program, createFileManager } from '@noir-lang/noir_wasm';
+import fs from 'fs'; import path from 'path';
+const dir = path.resolve(process.argv[2]);
+const t0 = Date.now();
+const fm = createFileManager(path.resolve(process.argv[4] || dir));
+const res = await compile_program(fm, dir, console.error, (m)=>{});
+const prog = res.program;
+const out = process.argv[3];
+fs.writeFileSync(out, JSON.stringify(prog));
+console.log('compiled in', (Date.now()-t0)/1000, 's; noir_version', prog.noir_version, 'bytecode bytes', prog.bytecode.length);

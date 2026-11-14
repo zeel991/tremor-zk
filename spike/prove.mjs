@@ -1,0 +1,16 @@
+import { Noir } from '@noir-lang/noir_js'; import { UltraHonkBackend, Barretenberg } from '@aztec/bb.js';
+import fs from 'fs'; import os from 'os';
+const circuit=JSON.parse(fs.readFileSync(process.argv[2])); const inputs=JSON.parse(fs.readFileSync(process.argv[3]));
+const target=process.argv[4]||'evm'; const threads=+process.argv[5]||os.cpus().length;
+const noir=new Noir(circuit);
+let t=Date.now(); const {witness,returnValue}=await noir.execute(inputs); console.log('witness',(Date.now()-t)/1000,'s; return',returnValue);
+const opts={threads, logger:()=>{}}; if(process.env.BB_BACKEND) opts.backend=process.env.BB_BACKEND;
+const api=await Barretenberg.new(opts); console.log('backend',api.constructor.name, api.backend?.constructor?.name||'');
+const be=new UltraHonkBackend(circuit.bytecode,api);
+const [total]=await api.acirGetCircuitSizes?.(Buffer.from(circuit.bytecode,'base64'),false,true).catch(()=>[null])||[null]; console.log('circuit size',total);
+t=Date.now(); const proof=await be.generateProof(witness,{verifierTarget:target}); const pt=(Date.now()-t)/1000;
+console.log('prove',pt,'s threads',threads,'target',target,'proof bytes',proof.proof.length,'pubs',proof.publicInputs.length);
+t=Date.now(); const ok=await be.verifyProof(proof,{verifierTarget:target}); console.log('verify',ok,(Date.now()-t)/1000,'s');
+const vk=await be.getVerificationKey({verifierTarget:target}); console.log('vk bytes',vk.length);
+fs.writeFileSync(`proof-${target}.json`,JSON.stringify({proof:Buffer.from(proof.proof).toString('hex'),publicInputs:proof.publicInputs,vk:Buffer.from(vk).toString('hex')}));
+await api.destroy();

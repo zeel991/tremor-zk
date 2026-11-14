@@ -1,0 +1,13 @@
+[package]
+name = "zkemail"
+type = "lib"
+authors = ["Mach 34"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+bignum = { path = "../bignum" }
+rsa = { path = "../rsa" }
+base64 = { path = "../base64" }
+nodash = { path = "../nodash" }
+sha256 = { path = "../sha256" }
+poseidon = { path = "../poseidon" }

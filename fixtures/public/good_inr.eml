@@ -1,0 +1,18 @@
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ci.receiptproof.invalid; s=ci; h=from:to:subject:date:message-id; bh=mmB02Hekh3/wPA4DEldojIyAdbhDJkEb2GF8fP0O2OM=; b=ceHA5QH8WJtewzyv0TZj4r6mzQkKtzzwX0JCxwLJC0Qg4Kg/vAGu9406Tb5X806apXWzLFt3rz49caIII/Idap4FP/oC9yYbv2ZSYr3SkDaO/sb61Pp9vMR3JZGri7tZzMZ0hI2INV7PW7Kvq2u1tPomdijvk2XMrtm3jkvzSbsadFaMvuOusRy8rTs5yrE098MLLRCbPSadZW8HP/eQNwhYzllrwb4GNaZw89qYBUsIPSiG9lQUFhltfAulyRg+TfUtTbF+RaNdhsRq++lgaErn7z9grUNED6yX4qLobLdtCsQgeuOdMq+yqdR7VlA6IXF2O6cihmUWNaz0TzX97w==
+From: Test Merchant <receipts@ci.receiptproof.invalid>
+To: Alice Example <Alice@Example.com>
+Subject: Your receipt
+Date: Sat, 15 Nov 2026 10:12:33 +0530
+Message-ID: <good_inr@ci.receiptproof.invalid>
+
+Hello,
+
+Thanks for your order at the ReceiptProof Test Merchant. This paragraph is padding so the amount lands after the first SHA-256 blocks and the partial-hash path is exercised.
+Thanks for your order at the ReceiptProof Test Merchant. This paragraph is padding so the amount lands after the first SHA-256 blocks and the partial-hash path is exercised.
+Thanks for your order at the ReceiptProof Test Merchant. This paragraph is padding so the amount lands after the first SHA-256 blocks and the partial-hash path is exercised.
+
+Order #RP-good_inr
+Amount paid: INR 1,249.50
+Paid with card ending 4242.
+
+ReceiptProof Test Merchant

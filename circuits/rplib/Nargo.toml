@@ -1,0 +1,9 @@
+[package]
+name = "rplib"
+type = "lib"
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zkemail = { path = "../vendor/zkemail" }
+poseidon = { path = "../vendor/poseidon" }
+bignum = { path = "../vendor/bignum" }
