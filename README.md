@@ -70,6 +70,7 @@ No trust in us or the agent is needed.
 - The real merchant templates (Uber, Swiggy, Zomato, Amazon.in) are compiled in as placeholders until checked against real receipts.
   - The test merchant (templates 100 and 101) is fully exercised.
   - Everything from the total line to the end of the body must fit in 1,280 bytes. Long HTML footers need a larger per-merchant circuit.
+- The circuit proves the anchor + amount appear in the signed body, not that it's the *only* such line. If a merchant echoes customer-typed text (e.g. delivery notes) into the email, a template's anchor must include enough surrounding HTML that typed text can't reproduce it. That's checked per merchant at template time (G4).
 - Only relaxed/relaxed `rsa-sha256` DKIM is supported.
 - Testnet until zkVerify mainnet enacts runtime 2.1.0.
 

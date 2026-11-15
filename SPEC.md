@@ -491,6 +491,7 @@ receiptproof/
 - **Key list:** curated by each vault's owner, timelocked and publicly checkable (§7.2). There's no DNSSEC on the MVP merchants, so it can't be fully trustless today.
 - **FX:** non-USD receipts pay at the company's timelocked policy rate. There's no on-chain INR/USD feed on Base.
 - **Merchant-side hints:** the merchant can't compute the nullifier, but it sees amount + date + merchant on-chain and could guess the customer for unusual amounts.
+- **Anchor uniqueness:** the proof shows the anchor + amount occur in the signed body, not that it is the only occurrence. Anchors for merchants that echo customer-typed text must include surrounding HTML that typed text cannot reproduce (escaped by the merchant). Checked per merchant at G4.
 - **Templates:** each merchant's email layout is compiled into the circuit. When a merchant changes its HTML, that template needs a new circuit version.
 - **Proving cost:** browser proving time is shown honestly. The native CLI is the fallback.
 - **One agent instance** and a daily submission cap to bound zkVerify fees.
