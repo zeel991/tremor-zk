@@ -29,4 +29,19 @@ mk('good_int', 'carol@example.org', '14 Nov 2026 23:59:59 -0800', 'Amount paid: 
 mk('bad_date', 'dave@example.org', 'Sat, 15 Nov 26 10:12:33 +0530', 'Amount paid: INR 10.00');
 mk('two_dots', 'erin@example.org', 'Sat, 15 Nov 2026 10:12:33 +0000', 'Amount paid: INR 1.2.3');
 mk('overflow', 'frank@example.org', 'Sat, 15 Nov 2026 10:12:33 +0000', 'Amount paid: INR 99999999999999');
+// 1024-bit CI key: some merchants (e.g. amazon.in keys in the zk-email archive) still use 1024-bit RSA.
+const key1024File = path.join(dir, 'ci_dkim_1024_TEST_ONLY.json');
+let pem1024;
+if (fs.existsSync(key1024File)) pem1024 = JSON.parse(fs.readFileSync(key1024File)).privateKeyPem;
+else {
+  pem1024 = crypto.generateKeyPairSync('rsa', { modulusLength: 1024, publicExponent: 65537 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+  fs.writeFileSync(key1024File, JSON.stringify({ WARNING: 'TEST-ONLY CI key. Public. Never register in a vault.', domain: 'ci1024.receiptproof.invalid', selector: 'ci', privateKeyPem: pem1024, txt: dkimTxt(pem1024) }, null, 2));
+}
+{
+  const { eml } = signEmail({
+    headers: [['From', 'Test Merchant <receipts@ci1024.receiptproof.invalid>'], ['To', 'gita@example.in'], ['Subject', 'Your receipt'], ['Date', 'Fri, 14 Nov 2026 18:30:00 +0530'], ['Message-ID', '<good_1024@ci1024.receiptproof.invalid>']],
+    body: `Hello,\n\n${filler}\nAmount paid: INR 2,999.00\nReceiptProof Test Merchant\n`, domain: 'ci1024.receiptproof.invalid', selector: 'ci', privateKey: pem1024,
+  });
+  fs.writeFileSync(path.join(dir, 'good_1024.eml'), eml);
+}
 console.log('fixtures in', dir, fs.readdirSync(dir));

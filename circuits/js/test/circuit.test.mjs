@@ -119,3 +119,19 @@ test('amount overflow rejected', async () => { await fails(inputsFor('overflow')
 test('fixtures verify with an independent DKIM check (node crypto)', () => {
   for (const f of ['good_inr', 'good_usd', 'good_int']) assert.equal(dkim(f).modulusLength, 2048);
 });
+
+test('1024-bit variant: proves amount; pubkey_hash differs from 2048 key', async () => {
+  const { receipt1024, CI_KEY_1024 } = await import('./helpers.mjs');
+  const { parseAndVerify } = await import('../lib/dkim.mjs');
+  const fs = await import('node:fs'); const path = await import('node:path');
+  const { FIX } = await import('./helpers.mjs');
+  const d = parseAndVerify(fs.readFileSync(path.join(FIX, 'good_1024.eml')), CI_KEY_1024);
+  assert.equal(d.modulusLength, 1024);
+  const b = buildInputs(d, { templateId: 100, salt: SALT, recipient: RECIPIENT, vaultId: 0 });
+  assert.equal(b.circuit, 'receipt_rsa1024');
+  const { returnValue } = await receipt1024().execute(b.inputs);
+  const out = returnValue.map(BigInt);
+  assert.equal(out[3], 299900n); assert.equal(out[5], BigInt(Date.parse('2026-11-14T18:30:00+05:30') / 1000));
+  const i = JSON.parse(JSON.stringify(b.inputs)); i.body.storage[+i.amount_start] = '8';
+  await assert.rejects(receipt1024().execute(i));
+});

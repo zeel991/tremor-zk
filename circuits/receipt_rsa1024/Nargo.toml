@@ -1,0 +1,8 @@
+[package]
+name = "receipt_rsa1024"
+type = "bin"
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zkemail = { path = "../vendor/zkemail" }
+rplib = { path = "../rplib" }

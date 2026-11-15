@@ -48,7 +48,7 @@ export function buildInputs(dkimIn, { templateId, salt, recipient, vaultId }) {
   const t = TEMPLATES[templateId];
   if (!t) throw new Error(`unknown template ${templateId}`);
   const bits = dkimResult.modulusLength;
-  if (bits !== 2048) throw new Error(`only 2048-bit keys in this circuit (got ${bits})`);
+  if (bits !== 2048 && bits !== 1024) throw new Error(`unsupported RSA key size ${bits} (need 1024 or 2048)`);
   const base = generateEmailVerifierInputsFromDKIMResult(dkimResult, {
     maxHeadersLength: MAX_HEADER, maxBodyLength: MAX_BODY, shaPrecomputeSelector: t.anchor,
   });
@@ -75,6 +75,7 @@ export function buildInputs(dkimIn, { templateId, salt, recipient, vaultId }) {
       template_id: String(templateId), amount_start: String(amountStart), amount_len: String(amountLen),
       salt: String(salt), recipient: BigInt(recipient).toString(), vault_id: String(vaultId),
     },
+    circuit: bits === 1024 ? 'receipt_rsa1024' : 'receipt_rsa2048',
     meta: { toAddress: toText, amountText: rem.slice(amountStart, amountStart + amountLen).toString('latin1') },
   };
 }
