@@ -1,0 +1,29 @@
+{
+  "note": "Real zkVerify Volta aggregation relayed to Base Sepolia. Statement is a third-party Groth16 proof (settlementGroth16Pallet), not a ReceiptProof UltraHonk proof: it proves the verifyProofAggregation call shape and path encoding, not our leaf formula.",
+  "chainId": 84532,
+  "aggregationContract": "0x0807C544D38aE7729f8798388d89Be6502A1e8A8",
+  "domainId": 2,
+  "aggregationId": 65470,
+  "leaf": "0x228075e3d4b743596aeddfaf8f88cffb5d4b41b29aa40ae9bb9d366e3382b401",
+  "merklePath": [
+    "0xb66ad34a7c7e734e45a99d3aabb5700b7fbbbd8e9f654ed645b17ddf945a438c",
+    "0x567e6b8ca228ae8b0aed5672845031af52dc4f599faad3be01ab22b82be50740",
+    "0xe069847fd1951014bfc808910d3b52795f5d4d0500d24d8c7ccba70739220eb2"
+  ],
+  "leafCount": 8,
+  "index": 1,
+  "root": "0xa550c3b5615fb8d30412fabab957ff5c6317294fb278d16fcda743aa1578627a",
+  "source": {
+    "voltaRpc": "wss://zkverify-volta-rpc.zkverify.io",
+    "voltaProofBlock": 8066121,
+    "voltaProofBlockHash": "0x0b95a8c1324abbd62ea26f9ec8094bc60297a0cebf1d55bf8dc275f6a4334cee",
+    "voltaProofExtrinsicIndex": 11,
+    "voltaReceiptBlock": 8066124,
+    "voltaReceiptBlockHash": "0x9a6178db77cb492b23b366fe6041c08074aad61bce6080c84486d05eca96cd5b",
+    "pathRpcCall": "aggregate_statementPath(voltaReceiptBlockHash, 2, 65470, leaf)",
+    "baseSepoliaPostBlock": 58876905,
+    "baseSepoliaPostTx": "0x99f0aa4b9c86801e02dbcd6eab2962a8ae1d5165dbe42e3d19477478ee1ca1b1",
+    "baseSepoliaEventTopic0": "0x431e1446261f5ed64f6fcd5c8a75fe76dcc7c2c207555eeb6cf27749e78ca226",
+    "fetchedAt": "2026-11-15"
+  }
+}
