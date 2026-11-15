@@ -3,16 +3,8 @@
 // "sample receipt" signer (secret key, server-side only).
 import crypto from 'node:crypto';
 
-export function canonBodyRelaxed(body) {
-  let lines = body.replace(/\r?\n/g, '\r\n').split('\r\n');
-  lines = lines.map((l) => l.replace(/[ \t]+/g, ' ').replace(/ +$/, ''));
-  while (lines.length && lines[lines.length - 1] === '') lines.pop();
-  return lines.length ? lines.join('\r\n') + '\r\n' : '';
-}
-
-export function canonHeaderRelaxed(name, value) {
-  return name.toLowerCase().trim() + ':' + value.replace(/\r?\n[ \t]+/g, ' ').replace(/[ \t]+/g, ' ').trim();
-}
+import { canonBodyRelaxed, canonHeaderRelaxed } from './canon.mjs';
+export { canonBodyRelaxed, canonHeaderRelaxed };
 
 /**
  * @param {{headers: [string,string][], body: string, domain: string, selector: string, privateKey: crypto.KeyObject|string}} o

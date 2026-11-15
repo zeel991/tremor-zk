@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ReceiptProof</title>
+  <meta name="description" content="Expense receipts that prove themselves: a zero-knowledge proof of the merchant's DKIM signature, verified on zkVerify, paid in USDC on Base." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap row">
+      <span class="logo">Receipt<b>Proof</b></span>
+      <nav><a href="#try">Try it</a><a href="#privacy">Privacy</a><a href="#verify">Verify a payout</a><a href="#feed">Live</a><a href="#limits">Limits</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <p class="eyebrow">zkVerify Agent Games 2026 · Wildcard</p>
+      <h1>Expense receipts that prove themselves.</h1>
+      <p class="lede">An AI can fake a receipt image in ten seconds. It can't fake the merchant's <abbr title="DomainKeys Identified Mail: every email from Uber, Swiggy or Amazon carries the sender's RSA signature">DKIM signature</abbr>. ReceiptProof proves that signature, the total and the date in zero knowledge, in your browser. zkVerify checks the proof, and the company's vault pays you USDC. Nobody but you sees the email.</p>
+      <div class="stats" id="stats">
+        <div><b id="s-claims">–</b><span>claims</span></div>
+        <div><b id="s-paid">–</b><span>paid on-chain</span></div>
+        <div><b id="s-network"></b><span>network</span></div>
+      </div>
+      <div class="flow" aria-label="How it works">
+        <div><span>1</span>Receipt email<br><small>stays in your tab</small></div>
+        <div><span>2</span>ZK proof<br><small>Noir + UltraHonk, ~10 s</small></div>
+        <div><span>3</span>Agent policy<br><small>caps, categories, notes</small></div>
+        <div><span>4</span>zkVerify<br><small>V5_0 ZK verification</small></div>
+        <div><span>5</span>USDC on Base<br><small>vault re-checks everything</small></div>
+      </div>
+    </section>
+
+    <section id="try" class="wrap">
+      <h2>Try it on the sandbox vault</h2>
+      <p class="muted">No wallet extension or testnet ETH needed. A sample receipt is a real DKIM-signed email from our test merchant. Real Uber/Swiggy/Amazon receipts use the same circuit with a merchant template.</p>
+
+      <div class="steps">
+        <article class="step" id="step1">
+          <h3><span>1</span> Your inbox and payout wallet</h3>
+          <label>Inbox address the receipt was sent to<input id="inbox" type="email" placeholder="you@example.com" autocomplete="email" /></label>
+          <label>Wallet that should receive USDC (Base Sepolia)<input id="wallet" placeholder="0x…" spellcheck="false" /></label>
+          <button id="btn-register">Register (in-browser commitment)</button>
+          <p class="note">Your browser makes a random secret salt and computes <code>to_commit = Poseidon2(inbox, salt)</code> with the same Noir code as the circuit. Only the commitment goes on-chain, never your address. <a href="#" id="export-salt">Export salt</a></p>
+          <div class="out" id="out1"></div>
+        </article>
+
+        <article class="step" id="step2">
+          <h3><span>2</span> A receipt email</h3>
+          <div class="row gap">
+            <button id="btn-sample">Email me a sample receipt (₹49)</button>
+            <label class="file">or drop a .eml<input id="eml" type="file" accept=".eml,message/rfc822" /></label>
+          </div>
+          <div class="out" id="out2"></div>
+        </article>
+
+        <article class="step" id="step3">
+          <h3><span>3</span> Prove it, in this tab</h3>
+          <button id="btn-prove" disabled>Generate zero-knowledge proof</button>
+          <div class="progress"><div id="bar"></div></div>
+          <div class="out" id="out3"></div>
+        </article>
+
+        <article class="step" id="step4">
+          <h3><span>4</span> Submit to the agent</h3>
+          <label>Note for your manager (optional)<input id="note" maxlength="280" placeholder="Client dinner, Bengaluru" /></label>
+          <button id="btn-submit" disabled>Submit proof</button>
+          <ol class="timeline" id="timeline"></ol>
+          <div class="out" id="out4"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="privacy" class="wrap">
+      <h2>What leaves your browser</h2>
+      <div class="cols">
+        <div class="panel keep">
+          <h3>Stays here</h3>
+          <ul id="kept"><li>The whole email: headers, body, order details</li><li>Your inbox address</li><li>Your salt</li><li>The RSA signature (only its salted hash goes out)</li></ul>
+        </div>
+        <div class="panel send">
+          <h3>Sent to the agent</h3>
+          <pre id="sent">{ vaultId, circuit, proof, pubs[9], note? }</pre>
+          <p class="note">The agent rejects any other field, and a test enforces this. Open your network tab and check.</p>
+        </div>
+      </div>
+      <table class="pubs" id="pubs-table"><thead><tr><th>#</th><th>Public input</th><th>Meaning</th><th>Value</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <section id="verify" class="wrap">
+      <h2>Verify a payout yourself</h2>
+      <p class="muted">Paste a payout transaction. Your browser decodes it, recomputes the zkVerify statement from the public inputs, and asks zkVerify's aggregation contract on Base whether that exact statement was verified. You don't have to trust us or our agent.</p>
+      <div class="row gap"><input id="txhash" placeholder="0x… (Base Sepolia transaction hash)" spellcheck="false" /><button id="btn-verify">Verify</button></div>
+      <ol class="checks" id="checks"></ol>
+    </section>
+
+    <section id="feed" class="wrap">
+      <h2>Live claims</h2>
+      <table class="feed"><thead><tr><th>When</th><th>Merchant</th><th>Amount</th><th>Inbox (commitment)</th><th>Decision</th><th>Links</th></tr></thead><tbody id="feed-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody></table>
+    </section>
+
+    <section id="limits" class="wrap cols">
+      <div class="panel">
+        <h3>What the proof establishes</h3>
+        <ul>
+          <li>The email was signed by the DKIM key the vault lists for that merchant's domain.</li>
+          <li>The signed body contains the merchant's total line, with exactly this amount.</li>
+          <li>It was sent on this date, to the inbox registered with this commitment.</li>
+          <li>Each email can be claimed once per vault (salted nullifier), and the payout goes only to the registered wallet.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>What it does not</h3>
+        <ul>
+          <li>That the purchase was business use, that you paid personally, or that it wasn't refunded. The policy agent and normal audit cover those.</li>
+          <li>The key list is curated by each vault owner, timelocked 24 h and checkable against DNS. The MVP merchants don't use DNSSEC, so this can't be fully trustless today.</li>
+          <li>Non-USD receipts pay at the company's own timelocked policy FX rate.</li>
+          <li>A merchant could guess which customer made a claim from an unusual amount and date.</li>
+          <li>Testnet: zkVerify mainnet hasn't enacted runtime 2.1.0 yet. The older ZK flavours on mainnet are marked unsound by zkVerify's own source, so we don't use them.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap muted">ReceiptProof · <a href="https://github.com/" id="repo-link">source</a> · built for #AgentGames with zkVerify</footer>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

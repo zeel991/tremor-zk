@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 // Build circuit inputs for receipt_rsa2048 from a DKIM result (SPEC 5.3, 19.1).
 import { generateEmailVerifierInputsFromDKIMResult } from '@zk-email/zkemail-nr';
 import { TEMPLATES } from './templates.mjs';
@@ -41,7 +42,9 @@ function toAddressSequences(headers) {
  * @param dkimResult zkemail DKIMVerificationResult (publicKey/signature bigint, canonical headers/body)
  * @param o {templateId, salt (hex/dec string), recipient (0x address), vaultId}
  */
-export function buildInputs(dkimResult, { templateId, salt, recipient, vaultId }) {
+export function buildInputs(dkimIn, { templateId, salt, recipient, vaultId }) {
+  // accept Uint8Array (browser verifier) or Buffer (node): zkemail-nr calls Buffer methods on these
+  const dkimResult = { ...dkimIn, headers: Buffer.from(dkimIn.headers), body: Buffer.from(dkimIn.body) };
   const t = TEMPLATES[templateId];
   if (!t) throw new Error(`unknown template ${templateId}`);
   const bits = dkimResult.modulusLength;
