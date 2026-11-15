@@ -88,7 +88,7 @@ Anyone can claim from the sandbox vault, with a per-merchant daily cap and a per
 | # | Name | Type | Meaning |
 |---|---|---|---|
 | 0 | `pubkey_hash` | Field | Poseidon hash of the DKIM RSA modulus limbs. The vault maps it to a merchant domain (§7) |
-| 1 | `nullifier` | Field | Poseidon(DKIM signature limbs, `salt`). Unique per email, because `to_commit` pins the email to one inbox and salt. Without `salt` the merchant, who knows the signature, can't recompute it and link the claim to its customer |
+| 1 | `nullifier` | Field | Pedersen(DKIM signature limbs, `salt`) via zkemail's `blinded_nullifier`, with `signature < modulus` constrained so `s + n` can't mint a second nullifier. Unique per email, because `to_commit` pins the email to one inbox and salt. Without `salt` the merchant, who knows the signature, can't recompute it and link the claim to its customer |
 | 2 | `template_id` | Field | Which merchant template parsed the body (§5.3) |
 | 3 | `amount_minor` | Field | Total in minor units (paise or cents) |
 | 4 | `currency` | Field | ISO-4217 numeric (356 INR, 840 USD) |
@@ -146,13 +146,14 @@ Each variant has its own VK, registered once with Kurier. The vault accepts both
 ### 5.3 Constraints, per proof
 1. `pubkey.verify_dkim_signature(header, signature)`, using zkemail's RSA over the canonicalised header.
 2. `constrain_header_field` for `DKIM-Signature` → extract `bh=` → base64-decode the signed body hash.
-3. Body hash check via **partial SHA**: the body is hashed outside the circuit up to the 64-byte block before the template region; `partial_sha256_var_end` finishes it in-circuit; assert equal to `bh`.
+3. Body hash check via **partial SHA**: the body is hashed outside the circuit up to the 64-byte block before the anchor; `partial_sha256_var_end` finishes it in-circuit; assert equal to `bh`. **Only the prefix can be skipped: everything from the anchor's block to the end of the body must fit in `MAX_BODY`** (1280 bytes in the built circuit). Real merchant HTML after the total can be long, so the per-merchant body size is part of G4 (built 2026-11-15).
 4. `pubkey_hash = Poseidon(modulus limbs)`.
-5. `nullifier = Poseidon(signature limbs, salt)`. The same `salt` feeds `to_commit` (step 7), so one inbox has exactly one nullifier per email.
+5. `nullifier = blinded_nullifier(signature, salt)` (Pedersen, zkemail) **and** `signature < modulus` (bignum `validate_in_field`; attack test `s+n`). The same `salt` feeds `to_commit` (step 7), so one inbox has exactly one nullifier per email.
 6. **`Date:` header:** `constrain_header_field("date")`, then parse RFC 5322 `DD Mon YYYY HH:MM:SS ±ZZZZ` into Unix seconds in-circuit (fixed-format parser, assert ranges).
 7. **`To:` header:** `get_email_address(header, "to")`, lowercase, then `to_commit = Poseidon(addr bytes packed, salt)`.
-8. **Template match on the visible body region** (after quoted-printable soft-break removal; zkemail has `remove_soft_line_breaks`):
-   - Assert `body[a .. a+len(anchor)] == ANCHOR[template_id]` (e.g. `Total` / `Amount Paid`, then the currency symbol).
+8. **Template match on the RAW signed body bytes** (built 2026-11-15; no soft-break decoding, which saved ~38k constraints):
+   - Anchors are stored in their quoted-printable form (e.g. `Total =E2=82=B9`). Matching raw bytes is sound because the body hash covers them as-is; a soft line break inside an anchor only makes the proof fail.
+   - Assert `body[a-len(anchor) .. a] == ANCHOR[template_id]` immediately before the amount, so the amount can't be a suffix of a larger number.
    - Parse digits with optional `,` thousands separators and one `.` into `amount_minor`. Assert the digit window is followed by a terminator.
    - Assert `template_id` is in the compiled template table.
 9. `recipient` and `vault_id` are passed through as public inputs with no constraints. They're bound because they're part of the proven statement.
@@ -169,7 +170,7 @@ Small, compiled into the circuit, and versioned. The MVP is 3 merchants:
 **[VERIFY]** the exact anchors and quoted-printable encoding against 2–3 real emails per merchant. Templates are the riskiest part of the circuit, because merchants change their HTML.
 
 ### 5.5 Size budget (measured, §18)
-- Header ≤ 1408 bytes, the template window ≤ 1280 bytes, and the rest of the body is partial-hashed.
+- Header ≤ 1408 bytes. The body from the anchor's 64-byte block to the end ≤ 1280 bytes; the prefix before it is partial-hashed outside the circuit.
 - **Measured** on the zk-email 2048-bit DKIM circuit at exactly these sizes (Noir 1.0, bb.js 5.3 WASM, ZK, Apple M5):
 
   | Threads | Prove | Verify | Peak memory |
@@ -188,6 +189,18 @@ Small, compiled into the circuit, and versioned. The MVP is 3 merchants:
   - Multithreaded runs hung at "Creating 4 worker threads" in this quick Vite setup. That's a bundling issue with bb.js's nested thread workers, to be fixed in `web/`. So 9.5 s is the **single-thread worst case** on this machine.
 - **Our full circuit** adds the template parser, date parser, `to_commit` and the nullifier. Estimate about +30–50% constraints, so about 15 s single-threaded in a browser on this machine. That's an estimate; slower laptops will be proportionally slower.
 - **Phones:** about 1 GB of WASM memory may fail on some mobile browsers. Desktop is the supported path, and the CLI is the fallback.
+
+### 5.5b Full circuit, measured (built 2026-11-15)
+| Where | Threads | Witness | Prove | Verify |
+|---|---|---|---|---|
+| Node, bb.js 5.3 WASM (Apple M-series) | 10 | 0.32 s | **1.8 s** | 0.6 s |
+| Node | 4 | 0.32 s | 2.2 s | 0.8 s |
+| Node | 1 | 0.33 s | 6.3 s | 1.9 s |
+| In-app Chromium, background pane, worker | 1 | 0.3–2 s | **10.8 s** | 3.1 s |
+
+- Proof 9,920 bytes, VK 1,888 bytes, 9 public inputs. Both variants measured: rsa2048 and rsa1024 prove in ~1.7 s at 10 threads.
+- VK hashes (`circuits/vk-hashes.json`): rsa2048 `0xdaed0392…9880` (**confirmed by Volta's `vk_hash_ultrahonk` RPC**), rsa1024 `0x69d3c79b…7e32`.
+- In the in-app browser the bb.js thread pool never starts (nested workers), so the web app falls back to one thread after 12 s. Multithreaded proving in desktop Chrome is **not yet verified** (Claude in Chrome was not connected).
 
 ### 5.6 Circuit tests (`nargo test` + JS)
 - **Happy path:** each template with a fixture email.
@@ -563,7 +576,7 @@ All parts (circuit, contracts, agent, web) build against this section. A change 
 | # | Name | Encoding |
 |---|---|---|
 | 0 | `pubkey_hash` | `poseidon_large(modulus limbs)` from zkemail (`hash.nr`); 1024-bit keys use `poseidon_large_padded_1024` |
-| 1 | `nullifier` | `Poseidon2([sig limbs folded…, salt])` (circuit `nullifier.nr`); unique per (email signature, salt) |
+| 1 | `nullifier` | `blinded_nullifier(signature, salt)` = Pedersen(sig limbs ‖ salt) from zkemail; unique per (email signature, salt); `signature < modulus` constrained |
 | 2 | `template_id` | uint, see 19.3 |
 | 3 | `amount_minor` | uint, amount in minor units (paise, cents), `< 10^12` |
 | 4 | `currency` | ISO 4217 numeric: `356` INR, `840` USD |
