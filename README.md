@@ -109,4 +109,4 @@ node circuits/js/cli.mjs prove receipt.eml --identity receiptproof-identity.json
 |---|---|---|
 | Circuit + JS libs | 28 | 14 attack cases: tampered body/amount, wrong key, swapped `To`, moved/short/long amount, wrong template, `s+n` malleability, wrong header field, tampered SHA state, bad date, overflow. Also the browser verifier → circuit path and the 1024-bit variant |
 | Contracts | 46 | Every revert path, a fuzz test, upgrades, sandbox registrar, the leaf on a real proof's public inputs, and 4 fork tests against zkVerify's real aggregation contract on Base Sepolia (aggregation 65470) |
-| Agent | 131 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration |
+| Agent | 136 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration, and a **local anvil end-to-end run**: real proof → agent → real `claim` tx → USDC paid, then DUPLICATE and PAYEE_MISMATCH rejected (Kurier and the aggregator mocked) |
