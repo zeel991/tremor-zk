@@ -21,7 +21,8 @@ async function vault(domain, selector) {
   const r = await fetch(`${CONFIG.agentUrl}/api/vault/${CONFIG.vaultId}`);
   if (!r.ok) return null;
   const v = await r.json();
-  const k = (v.keys || v.dkimKeys || []).find((x) => x.domain === domain && x.selector === selector && x.modulus);
+  // only keys the vault would accept right now: past the 24 h timelock and not cancelled
+  const k = (v.dkimKeys || []).find((x) => x.domain === domain && x.selector === selector && x.modulus && x.active && !x.cancelled);
   if (!k) return null;
   const hex = k.modulus.replace(/^0x/, '');
   return BigInt('0x' + hex);

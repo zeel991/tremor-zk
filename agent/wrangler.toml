@@ -1,0 +1,43 @@
+# ReceiptProof agent. Free plan only (SPEC §11). Do not deploy from this file
+# until the placeholders below are replaced and the secrets are set.
+name = "receiptproof-agent"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "receiptproof"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["* * * * *"]   # poller, every minute (SPEC §8.2 step 5)
+
+[vars]
+# Network: Volta -> Base Sepolia until zkVerify mainnet runs specVersion >= 2001000 (SPEC §5.1).
+KURIER_BASE_URL = "https://api-testnet.kurier.xyz/api/v1"   # mainnet: https://api.kurier.xyz/api/v1
+CHAIN_ID = "84532"                                          # Base Sepolia; Base mainnet = 8453
+RPC_URL = "https://sepolia.base.org"
+ZKV_AGGREGATION = "0x0807C544D38aE7729f8798388d89Be6502A1e8A8"  # SPEC §19.2 (Base: 0xCb47A3C3B9Eb2E549a3F2EA4729De28CafbB2b69)
+ZKV_DOMAIN_ID = "2"
+# Registered VK hashes per circuit, keccak256(0x03 || vk) (SPEC §19.1). JSON object.
+VK_HASHES = '{"rsa2048":"0xREPLACE","rsa1024":"0xREPLACE"}'
+ALLOWED_ORIGINS = "http://localhost:5173"                    # comma separated; add the Pages origin
+MAX_SUBMISSIONS_PER_DAY = "50"
+DECISION_TTL_SECONDS = "3600"
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+POLL_BATCH = "10"
+# KEY_LOGS_FROM_BLOCK = "<vault deploy block>"   # optional: discover DKIM keys from KeyProposed events
+# MULTICALL3_ADDRESS = ""                       # only for chains without canonical Multicall3 (local anvil)
+# Sandbox (vault 0) endpoints
+SAMPLE_DKIM_DOMAIN = "REPLACE_WITH_TEST_DOMAIN"
+SAMPLE_DKIM_SELECTOR = "REPLACE_WITH_SELECTOR"
+SAMPLE_RECEIPTS_PER_IP_PER_DAY = "5"
+REGISTRATIONS_PER_IP_PER_DAY = "3"
+
+# Secrets (set with `wrangler secret put`, never committed):
+#   KURIER_API_KEY, AGENT_PRIVATE_KEY, RELAYER_PRIVATE_KEY, SAMPLE_DKIM_PRIVATE_KEY (PKCS8 PEM)

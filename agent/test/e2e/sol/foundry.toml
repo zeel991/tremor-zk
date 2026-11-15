@@ -1,0 +1,10 @@
+# Test-only mocks for the local anvil end-to-end test (test/e2e.anvil.test.ts). Never deployed elsewhere.
+[profile.default]
+src = "src"
+out = "out"
+cache_path = "cache"
+libs = []
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+offline = true
