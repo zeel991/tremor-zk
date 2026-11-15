@@ -88,16 +88,17 @@ async function prove() {
   if (!id) return say('out3', 'Register first.', 'bad');
   $('btn-prove').disabled = true; $('bar').style.width = '5%';
   try {
-    const { inputs, meta } = buildInputs(state.dkim, { templateId: state.email.templateId, salt: id.salt, recipient: id.wallet, vaultId: CONFIG.vaultId });
+    const { inputs, meta, circuit } = buildInputs(state.dkim, { templateId: state.email.templateId, salt: id.salt, recipient: id.wallet, vaultId: CONFIG.vaultId });
     if (meta.toAddress.toLowerCase() !== id.inbox) say('out3', `This email was sent to ${esc(meta.toAddress)}, not your registered inbox. The proof will be rejected (PAYEE check).`, 'warn');
     const t0 = performance.now(); const times = [];
     const pct = { witness: 25, backend: 40, prove: 90, verify: 100 };
     const onStep = (k, ms) => { times.push(`${k} ${(ms / 1000).toFixed(1)}s`); $('bar').style.width = (pct[k] || 50) + '%'; say('out3', `Proving… ${times.join(' · ')}`); };
-    const r = await proveInWorker(inputs, (k, ms) => { if (k === 'fallback') { times.length = 0; say('out3', 'Thread pool unavailable in this browser; proving single-threaded…', 'warn'); return; } onStep(k, ms); });
+    const r = await proveInWorker(inputs, (k, ms) => { if (k === 'fallback') { times.length = 0; say('out3', 'Thread pool unavailable in this browser; proving single-threaded…', 'warn'); return; } onStep(k, ms); }, { circuit });
+    state.circuit = circuit === 'receipt_rsa1024' ? 'rsa1024' : 'rsa2048';
     state.proof = r;
     const pubs = r.publicInputs.map((p) => BigInt(p));
     if (pubs.some((p) => p >= BN254)) throw new Error('public input out of field');
-    $('sent').textContent = JSON.stringify({ vaultId: CONFIG.vaultId, circuit: 'rsa2048', proof: `0x… (${r.proof.length} bytes)`, pubs: r.publicInputs }, null, 1);
+    $('sent').textContent = JSON.stringify({ vaultId: CONFIG.vaultId, circuit: state.circuit, proof: `0x… (${r.proof.length} bytes)`, pubs: r.publicInputs }, null, 1);
     $('pubs-table').querySelector('tbody').innerHTML = pubs.map((p, i) => `<tr><td>${i}</td><td>${esc(PUB_MEANING[i].split(':')[0])}</td><td class="muted">${esc(PUB_MEANING[i].split(': ')[1])}</td><td><code>${i === 3 ? esc(fmtAmount(p, pubs[4])) : i === 5 ? esc(new Date(Number(p) * 1000).toISOString()) : esc('0x' + p.toString(16))}</code></td></tr>`).join('');
     say('out3', `<span class="ok">✓ Proof generated and verified locally</span> in ${((performance.now() - t0) / 1000).toFixed(1)} s (${r.threads} thread${r.threads > 1 ? 's' : ''}) · ${r.proof.length} bytes · ${times.join(' · ')}`);
   } catch (e) { say('out3', esc(e.message), 'bad'); $('bar').style.width = '0'; }
@@ -109,7 +110,7 @@ const STAGES = [['RECEIVED', 'Agent pre-checks + policy'], ['Queued', 'Queued at
 async function submit() {
   $('btn-submit').disabled = true;
   try {
-    const body = { vaultId: CONFIG.vaultId, circuit: 'rsa2048', proof: hex(state.proof.proof), pubs: state.proof.publicInputs };
+    const body = { vaultId: CONFIG.vaultId, circuit: state.circuit || 'rsa2048', proof: hex(state.proof.proof), pubs: state.proof.publicInputs };
     const note = $('note').value.trim(); if (note) body.note = note;
     const r = await api('/api/claim', body);
     state.claimId = r.claimId;

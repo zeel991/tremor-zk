@@ -22,7 +22,7 @@ export async function computeToCommit(address, salt) {
  * @param onStep (label, ms) progress callback
  */
 export async function prove(inputs, onStep = () => {}, opts = {}) {
-  const c = await circuit('receipt_rsa2048');
+  const c = await circuit(opts.circuit || 'receipt_rsa2048');
   let t = performance.now();
   const { witness } = await new Noir(c).execute(inputs);
   onStep('witness', performance.now() - t);
@@ -51,12 +51,12 @@ export async function prove(inputs, onStep = () => {}, opts = {}) {
 export async function proveInWorker(inputs, onStep = () => {}, opts = {}) {
   const threads = opts.threads ?? Math.min(navigator.hardwareConcurrency || 4, 8);
   if (threads > 1 && globalThis.crossOriginIsolated) {
-    try { return await runWorker(inputs, onStep, threads, opts.backendTimeoutMs ?? 12000); }
+    try { return await runWorker(inputs, onStep, threads, opts.backendTimeoutMs ?? 12000, opts.circuit); }
     catch (e) { if (!/backend timeout/.test(e.message)) throw e; onStep('fallback', 0); }
   }
-  return runWorker(inputs, onStep, 1, 0);
+  return runWorker(inputs, onStep, 1, 0, opts.circuit);
 }
-function runWorker(inputs, onStep, threads, backendTimeoutMs) {
+function runWorker(inputs, onStep, threads, backendTimeoutMs, circuit) {
   return new Promise((resolve, reject) => {
     const w = new Worker(new URL('./prove.worker.js', import.meta.url), { type: 'module' });
     let timer = null;
@@ -66,6 +66,6 @@ function runWorker(inputs, onStep, threads, backendTimeoutMs) {
       else { clearTimeout(timer); w.terminate(); data.type === 'done' ? resolve(data.result) : reject(new Error(data.error)); }
     };
     w.onerror = (e) => { clearTimeout(timer); w.terminate(); reject(new Error(e.message || 'prover worker crashed')); };
-    w.postMessage({ inputs, threads });
+    w.postMessage({ inputs, threads, circuit });
   });
 }

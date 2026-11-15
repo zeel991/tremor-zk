@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "circuits": "mkdir -p public/circuits src/rp && cp ../circuits/target/receipt_rsa2048.json ../circuits/target/commit.json public/circuits/ && cp ../circuits/js/lib/*.mjs src/rp/",
+    "circuits": "mkdir -p public/circuits src/rp && cp ../circuits/target/receipt_rsa2048.json ../circuits/target/receipt_rsa1024.json ../circuits/target/commit.json public/circuits/ && cp ../circuits/js/lib/*.mjs src/rp/",
     "dev": "npm run circuits && vite",
     "build": "npm run circuits && vite build",
     "preview": "vite preview"
