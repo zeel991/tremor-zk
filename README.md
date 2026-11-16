@@ -1,10 +1,12 @@
-# ReceiptProof
+# Tremor (ReceiptProof)
+
+**Live: https://tremor.in** · app: https://tremor.in/app · agent API: https://tremor-agent.agent-games-gatekeeper.workers.dev
 
 **Expense receipts that prove themselves.** An expense agent that pays a receipt only when a zero-knowledge proof shows the merchant's own DKIM email signature covers that total. zkVerify verifies the proof, and a vault on Base pays USDC. The email never leaves the employee's browser.
 
 Built for zkVerify Agent Games 2026 (Wildcard).
 
-> **Status (2026-11-15):** circuit, contracts, agent and web app are built and tested locally (see [Tests](#tests)). Not yet deployed: deploying, funding and the first on-chain claim each wait for the owner's go-ahead. Addresses will be listed here once they exist.
+> **Status (2026-11-16):** the web app (tremor.in) and the agent Worker are live. In the browser you can get a sample receipt signed by the Tremor sandbox DKIM key, verify it, and prove it with UltraHonk ZK. The testnet settlement vault (Base Sepolia) and Kurier submission are not live yet: they need a funded deployer, test USDC and a Kurier testnet key. Until then, Submit explains this and offers the claim as a download.
 
 ## The problem
 - Generative AI fakes receipt images in seconds. Expense-audit vendors report AI-generated receipts as a fast-growing share of fraud.
@@ -80,7 +82,7 @@ circuits/   Noir: rplib (date, amount, templates, commit, sig), receipt_rsa2048,
 circuits/js lib (DKIM sign/verify, input builder), tests, prove.mjs, cli.mjs (CLI fallback)
 contracts/  ReceiptVault (Foundry, UUPS) + tests incl. a fork test against zkVerify's Base Sepolia contract
 agent/      Cloudflare Worker + D1: API, pre-checks, policy engine, Kurier client, poller, settlement, sandbox endpoints
-web/        Vite app: in-browser DKIM + ZK proving, privacy panel, verify-a-payout, live feed
+web/        Tremor site (React + Vite + Tailwind v4 + Motion): landing page and /app (in-browser DKIM + ZK proving, verify-a-payout, activity). Deployed on Vercel (project tremor-zk)
 fixtures/   public/: emails signed by a TEST-ONLY CI key (never registered in any vault); private/ is gitignored
 SPEC.md     full design, gates, evidence log
 ```
@@ -109,4 +111,4 @@ node circuits/js/cli.mjs prove receipt.eml --identity receiptproof-identity.json
 |---|---|---|
 | Circuit + JS libs | 28 | 14 attack cases: tampered body/amount, wrong key, swapped `To`, moved/short/long amount, wrong template, `s+n` malleability, wrong header field, tampered SHA state, bad date, overflow. Also the browser verifier → circuit path and the 1024-bit variant |
 | Contracts | 46 | Every revert path, a fuzz test, upgrades, sandbox registrar, the leaf on a real proof's public inputs, and 4 fork tests against zkVerify's real aggregation contract on Base Sepolia (aggregation 65470) |
-| Agent | 136 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration, and a **local anvil end-to-end run**: real proof → agent → real `claim` tx → USDC paid, then DUPLICATE and PAYEE_MISMATCH rejected (Kurier and the aggregator mocked) |
+| Agent | 137 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration, and a **local anvil end-to-end run**: real proof → agent → real `claim` tx → USDC paid, then DUPLICATE and PAYEE_MISMATCH rejected (Kurier and the aggregator mocked) |
