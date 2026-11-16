@@ -27,7 +27,7 @@ export const Seismograph = forwardRef(function Seismograph({ className = '', hei
       points.length = Math.ceil(w / 3) + 2; points.fill(0);
     };
     const ro = new ResizeObserver(resize); ro.observe(c); resize();
-    const accent = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff5b22';
+    const accent = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#eba9d6';
     const line = () => getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#26282b';
 
     const draw = () => {

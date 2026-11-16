@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
-  Waveform, IdentificationCard, Envelope, Cpu, PaperPlaneTilt, CheckCircle, XCircle, WarningCircle,
+  IdentificationCard, Envelope, Cpu, PaperPlaneTilt, CheckCircle, XCircle, WarningCircle,
   UploadSimple, DownloadSimple, ArrowRight, ArrowSquareOut, MagnifyingGlass, ListBullets, CircleNotch, Copy,
 } from '@phosphor-icons/react';
 import { Seismograph } from '../components/Seismograph.jsx';
@@ -42,20 +42,20 @@ function Shell({ tab, setTab, children }) {
   const tabs = [['prove', 'Prove', Cpu], ['verify', 'Verify a payout', MagnifyingGlass], ['activity', 'Activity', ListBullets]];
   return (
     <div className="min-h-[100dvh]">
-      <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8">
-          <a href="/" className="flex items-center gap-2 font-semibold tracking-tight"><Waveform size={22} weight="bold" className="text-accent" /> Tremor</a>
-          <nav className="flex gap-1 rounded-full border border-line p-1 text-sm">
+      <header className="sticky top-0 z-40 border-b border-accent/30 bg-bg/85 backdrop-blur-md">
+        <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 md:grid-cols-[1fr_auto_1fr] md:px-6">
+          <a href="/" className="flex items-center gap-4"><span className="display text-[1.3rem]">Tremor</span><span className="micro hidden leading-tight text-ink-3 lg:block">Prove a<br />receipt</span></a>
+          <nav className="flex justify-center gap-1 rounded-full border border-ink/40 p-1">
             {tabs.map(([id, label, Icon]) => (
-              <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors ${tab === id ? 'bg-ink text-bg' : 'text-ink-2 hover:text-ink'}`}>
-                <Icon size={15} weight={tab === id ? 'bold' : 'regular'} /><span className="hidden sm:inline">{label}</span>
+              <button key={id} onClick={() => setTab(id)} aria-label={label} className={`micro flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${tab === id ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:text-ink'}`}>
+                <Icon size={13} weight="bold" className="sm:hidden" /><span className={`box hidden sm:inline-block ${tab === id ? '!border-accent-ink !bg-accent-ink' : ''}`} /><span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </nav>
-          <div className="hidden text-xs text-ink-3 lg:block">{CONFIG.network}</div>
+          <div className="micro hidden justify-self-end text-ink-3 lg:block">{CONFIG.network}</div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">{children}</main>
+      <main className="mx-auto max-w-[1400px] px-4 py-8 md:px-6 md:py-12">{children}</main>
     </div>
   );
 }
@@ -84,11 +84,11 @@ function Rail({ step, done, go }) {
           <li key={id} className="flex-1 md:flex-none">
             <button disabled={!reachable} onClick={() => go(id)}
               className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors disabled:opacity-40 ${active ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}>
-              {active && <motion.span layoutId="rail-active" transition={{ type: 'spring', stiffness: 380, damping: 32 }} className="absolute inset-0 -z-10 rounded-xl bg-bg-2" />}
+              {active && <motion.span layoutId="rail-active" transition={{ type: 'spring', stiffness: 380, damping: 32 }} className="absolute inset-0 -z-10 rounded-xl border border-accent/60" />}
               <span className={`grid size-7 shrink-0 place-items-center rounded-full border ${isDone ? 'border-transparent bg-accent text-accent-ink' : active ? 'border-accent text-accent' : 'border-line'}`}>
                 {isDone ? <CheckCircle size={16} weight="bold" /> : <Icon size={15} />}
               </span>
-              <span className="hidden md:inline">{label}</span>
+              <span className="hidden md:block"><span className="micro block text-ink-3">( 0{i + 1} )</span><span className="micro mt-0.5 block !text-[.74rem] text-ink">{label}</span></span>
             </button>
           </li>
         );
@@ -100,9 +100,12 @@ function Rail({ step, done, go }) {
 function Panel({ title, sub, children }) {
   const reduce = useReducedMotion();
   return (
-    <motion.section initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }} className="rounded-2xl border border-line bg-bg-2/50 p-6 md:p-8">
-      <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h2>
-      {sub && <p className="mt-2 max-w-[60ch] text-ink-2">{sub}</p>}
+    <motion.section initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease }} className="frame bg-bg p-6 md:p-8">
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="display text-[clamp(1.9rem,4vw,3.4rem)]">{title}</h2>
+        <span className="grip mt-2 text-ink-3"><i /><i /><i /><i /><i /><i /></span>
+      </div>
+      {sub && <p className="mt-4 max-w-[60ch] text-ink-2">{sub}</p>}
       <div className="mt-7">{children}</div>
     </motion.section>
   );
@@ -159,7 +162,7 @@ function IdentityStep({ identity, onDone }) {
 
 function ReceiptCard({ r }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-bg">
+    <div className="overflow-hidden rounded-[14px] border border-line bg-bg">
       <div className="flex items-center justify-between border-b border-line px-5 py-3 text-xs text-ink-3">
         <span className="mono">{r.domain}</span><span>selector <span className="mono">{r.selector}</span></span>
       </div>
@@ -236,7 +239,7 @@ function ReceiptStep({ identity, onDone }) {
           {msg && <Status kind={msg[0]}>{msg[1]}</Status>}
         </div>
         <div>{rec ? <ReceiptCard r={rec} /> : (
-          <div className="hidden h-full min-h-[260px] place-items-center rounded-2xl border border-line p-8 text-center text-sm text-ink-3 lg:grid">
+          <div className="hidden h-full min-h-[260px] place-items-center rounded-[14px] border border-line p-8 text-center text-sm text-ink-3 lg:grid">
             The checked receipt appears here: merchant, total, date, and which key sources vouched for it.
           </div>
         )}</div>
@@ -271,7 +274,7 @@ function ProofStep({ identity, receipt, onDone, proof }) {
   };
   return (
     <Panel title="Prove it, on this device" sub="The circuit checks the signature, the total, the date and your inbox. Only the proof and nine public values come out.">
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-bg">
+      <div className="relative overflow-hidden rounded-[14px] border border-line bg-bg">
         <Seismograph ref={seis} height={120} />
         <AnimatePresence>
           {state === 'done' && [0, 1, 2].map((k) => (
@@ -303,7 +306,7 @@ function ProofStep({ identity, receipt, onDone, proof }) {
         {proof && state === 'done' && <Status kind="ok">Proof ready: {proof.proof.length.toLocaleString()} bytes in {proof.seconds.toFixed(1)} s, verified locally.</Status>}
       </div>
       {proof && (
-        <div className="mt-8 overflow-hidden rounded-2xl border border-line">
+        <div className="mt-8 overflow-hidden rounded-[14px] border border-line">
           <div className="border-b border-line px-5 py-3 text-sm text-ink-3">The nine public values (everything a verifier learns)</div>
           <div className="divide-y divide-line">
             {proof.publicInputs.map((p, i) => {
@@ -367,7 +370,7 @@ function SubmitStep({ proof }) {
           {res && !res.ok && res.offline && <Status kind="warn">The testnet settlement vault isn't live yet, so this proof can't be paid today. Your proof is valid: download the claim and submit it when the vault opens.</Status>}
           {res && !res.ok && !res.offline && <Status kind="bad">{res.error}{res.reasons ? `: ${res.reasons.join(', ')}` : ''}</Status>}
         </div>
-        <ol className="grid content-start gap-0 rounded-2xl border border-line p-5">
+        <ol className="grid content-start gap-0 rounded-[14px] border border-line p-5">
           {STAGES.map(([, label], i) => (
             <li key={label} className="flex items-center gap-3 py-2.5 text-sm">
               {i < reached ? <CheckCircle size={18} weight="fill" className="text-ok" /> : i === reached && res?.ok ? <CircleNotch size={18} className="animate-spin text-accent" /> : <span className="size-[18px] rounded-full border border-line" />}

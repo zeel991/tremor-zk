@@ -4,13 +4,14 @@ import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 
 /* ------------------------------------------------------------------ terrain
- * A wireframe "seismic field". Calm noise plus travelling shockwaves: each verified receipt
+ * A halftone "seismic field" (dots). Calm noise plus travelling shockwaves: each verified receipt
  * pushes a ring outwards from under the card. A fake receipt damps the field to near-flat.
  */
 const MAX_PULSES = 6;
 const terrainVert = /* glsl */ `
   uniform float uTime;
   uniform float uCalm;
+  uniform float uDpr;
   uniform vec4 uPulses[${MAX_PULSES}]; // x, z origin, start time, strength
   varying float vH;
   varying float vDepth;
@@ -33,6 +34,8 @@ const terrainVert = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(p, 1.);
     vDepth = -mv.z;
     gl_Position = projectionMatrix * mv;
+    // halftone: dots grow with the wave and shrink with distance
+    gl_PointSize = min((1.4 + clamp(abs(h) * 5.5, 0., 4.2)) * uDpr * (9. / max(vDepth, 1.)), 7. * uDpr);
   }`;
 const terrainFrag = /* glsl */ `
   uniform vec3 uAccent;
@@ -40,10 +43,12 @@ const terrainFrag = /* glsl */ `
   varying float vH;
   varying float vDepth;
   void main(){
+    vec2 q = gl_PointCoord - .5;
+    if (dot(q, q) > .25) discard;
     float glow = clamp(abs(vH) * 2.2, 0., 1.);
-    vec3 c = mix(uBase, uAccent, .18 + glow * .82);
-    float fade = smoothstep(26., 6., vDepth);
-    gl_FragColor = vec4(c, fade * (.32 + glow * .68));
+    vec3 c = mix(uBase, uAccent, .35 + glow * .65);
+    float fade = smoothstep(26., 5., vDepth);
+    gl_FragColor = vec4(c, fade * (.45 + glow * .55));
   }`;
 
 function Terrain({ bus }) {
@@ -51,9 +56,10 @@ function Terrain({ bus }) {
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uCalm: { value: 1 },
+    uDpr: { value: Math.min(window.devicePixelRatio || 1, 1.75) },
     uPulses: { value: Array.from({ length: MAX_PULSES }, () => new THREE.Vector4(0, 0, -99, 0)) },
-    uAccent: { value: new THREE.Color('#ff5b22') },
-    uBase: { value: new THREE.Color('#3a3d42') },
+    uAccent: { value: new THREE.Color('#eba9d6') },
+    uBase: { value: new THREE.Color('#5a4a58') },
   }), []);
   const slot = useRef(0);
   useEffect(() => {
@@ -70,10 +76,10 @@ function Terrain({ bus }) {
     uniforms.uCalm.value += (1 - uniforms.uCalm.value) * 0.006;
   });
   return (
-    <mesh rotation-x={-Math.PI / 2} position={[0, -1.35, -4]}>
-      <planeGeometry args={[40, 30, 160, 120]} />
-      <shaderMaterial ref={mat} uniforms={uniforms} vertexShader={terrainVert} fragmentShader={terrainFrag} wireframe transparent depthWrite={false} />
-    </mesh>
+    <points rotation-x={-Math.PI / 2} position={[0, -1.35, -4]}>
+      <planeGeometry args={[40, 30, 200, 150]} />
+      <shaderMaterial ref={mat} uniforms={uniforms} vertexShader={terrainVert} fragmentShader={terrainFrag} transparent depthWrite={false} />
+    </points>
   );
 }
 
@@ -99,10 +105,10 @@ function drawReceipt(ctx, r, stamp) {
   ctx.fillText(r.real ? 'bh=Aj7F53G08EgtM8lQ2N0+wFEG…' : 'no verifiable origin', 56, 716);
   if (stamp) {
     ctx.save(); ctx.translate(W / 2 + 30, 380); ctx.rotate(-0.22);
-    const col = r.real ? '#ff5b22' : '#d43a2f';
+    const col = r.real ? '#c2408f' : '#d43a2f';
     ctx.strokeStyle = col; ctx.lineWidth = 10; ctx.globalAlpha = 0.92;
     ctx.beginPath(); ctx.roundRect(-210, -64, 420, 128, 22); ctx.stroke();
-    ctx.fillStyle = col; ctx.font = '700 72px Geist Variable, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.font = '400 66px Dela Gothic One, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(r.real ? 'PROVEN' : 'REJECTED', 0, 4);
     ctx.restore();
   }
@@ -133,10 +139,10 @@ function Receipt({ bus, feed, index }) {
     const ease = 1 - Math.pow(1 - (1 - a.flip), 3);
     g.rotation.y = (1 - ease) * Math.PI * 0.9 + state.pointer.x * 0.25;
     g.rotation.x = -0.12 + state.pointer.y * 0.12;
-    const portrait = state.viewport.aspect < 1;
-    g.position.x = (portrait ? 0.15 : 1.9) + Math.sin(state.clock.elapsedTime * 40) * 0.06 * a.shake;
-    g.position.y = portrait ? -1.55 : 0.25;
-    g.scale.setScalar(portrait ? 0.7 : 1);
+    const portrait = state.size.width < 768; // phones: the canvas is a band under the headline
+    g.position.x = (portrait ? 0.4 : 2.45) + Math.sin(state.clock.elapsedTime * 40) * 0.06 * a.shake;
+    g.position.y = portrait ? 0.05 : 0.25;
+    g.scale.setScalar(portrait ? 1.05 : 1);
   });
   return (
     <Float speed={1.4} rotationIntensity={0.25} floatIntensity={0.6}>
@@ -171,7 +177,7 @@ export default function Hero3D({ feed, index, onReady }) {
     >
       <ambientLight intensity={0.9} />
       <directionalLight position={[3, 4, 5]} intensity={1.4} />
-      <pointLight position={[2, 1, 2]} intensity={6} color="#ff5b22" distance={7} />
+      <pointLight position={[2, 1, 2]} intensity={6} color="#eba9d6" distance={7} />
       <Terrain bus={bus} />
       <Receipt bus={bus} feed={feed} index={index} />
       <CameraRig />
