@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
-  IdentificationCard, Envelope, Cpu, PaperPlaneTilt, CheckCircle, XCircle, WarningCircle,
+  Waveform, IdentificationCard, Envelope, Cpu, PaperPlaneTilt, CheckCircle, XCircle, WarningCircle,
   UploadSimple, DownloadSimple, ArrowRight, ArrowSquareOut, MagnifyingGlass, ListBullets, CircleNotch, Copy,
 } from '@phosphor-icons/react';
 import { Seismograph } from '../components/Seismograph.jsx';
@@ -41,10 +41,10 @@ const PUBS = [
 function Shell({ tab, setTab, children }) {
   const tabs = [['prove', 'Prove', Cpu], ['verify', 'Verify a payout', MagnifyingGlass], ['activity', 'Activity', ListBullets]];
   return (
-    <div className="min-h-[100dvh]">
-      <header className="sticky top-0 z-40 border-b border-accent/30 bg-bg/85 backdrop-blur-md">
+    <div className="min-h-[100dvh] [background:radial-gradient(70%_45%_at_100%_100%,color-mix(in_srgb,var(--ember)_22%,transparent),transparent_70%),var(--bg)] bg-fixed">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-bg/80 backdrop-blur-md">
         <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 md:grid-cols-[1fr_auto_1fr] md:px-6">
-          <a href="/" className="flex items-center gap-4"><span className="display text-[1.3rem]">Tremor</span><span className="micro hidden leading-tight text-ink-3 lg:block">Prove a<br />receipt</span></a>
+          <a href="/" className="flex items-center gap-4"><span className="flex items-center gap-2 text-[1.02rem] font-medium tracking-tight"><Waveform size={20} weight="bold" className="text-accent" />tremor</span><span className="micro hidden leading-tight text-ink-3 lg:block">Prove a<br />receipt</span></a>
           <nav className="flex justify-center gap-1 rounded-full border border-ink/40 p-1">
             {tabs.map(([id, label, Icon]) => (
               <button key={id} onClick={() => setTab(id)} aria-label={label} className={`micro flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${tab === id ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:text-ink'}`}>
