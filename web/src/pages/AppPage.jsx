@@ -83,7 +83,8 @@ function Rail({ step, done, go }) {
         return (
           <li key={id} className="flex-1 md:flex-none">
             <button disabled={!reachable} onClick={() => go(id)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors disabled:opacity-40 ${active ? 'bg-bg-2 text-ink' : 'text-ink-2 hover:text-ink'}`}>
+              className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors disabled:opacity-40 ${active ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}>
+              {active && <motion.span layoutId="rail-active" transition={{ type: 'spring', stiffness: 380, damping: 32 }} className="absolute inset-0 -z-10 rounded-xl bg-bg-2" />}
               <span className={`grid size-7 shrink-0 place-items-center rounded-full border ${isDone ? 'border-transparent bg-accent text-accent-ink' : active ? 'border-accent text-accent' : 'border-line'}`}>
                 {isDone ? <CheckCircle size={16} weight="bold" /> : <Icon size={15} />}
               </span>
@@ -270,7 +271,17 @@ function ProofStep({ identity, receipt, onDone, proof }) {
   };
   return (
     <Panel title="Prove it, on this device" sub="The circuit checks the signature, the total, the date and your inbox. Only the proof and nine public values come out.">
-      <div className="overflow-hidden rounded-2xl border border-line bg-bg"><Seismograph ref={seis} height={120} /></div>
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-bg">
+        <Seismograph ref={seis} height={120} />
+        <AnimatePresence>
+          {state === 'done' && [0, 1, 2].map((k) => (
+            <motion.span key={`ring-${k}-${proof?.seconds}`} aria-hidden="true"
+              initial={{ scale: 0.2, opacity: 0.7 }} animate={{ scale: 6, opacity: 0 }}
+              transition={{ duration: 1.6, delay: k * 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="pointer-events-none absolute top-1/2 left-1/2 -mt-10 -ml-10 size-20 rounded-full border-2 border-accent" />
+          ))}
+        </AnimatePresence>
+      </div>
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_auto] md:items-start">
         <ol className="grid gap-3">
           {PHASES.map(([k, label]) => {
@@ -299,11 +310,11 @@ function ProofStep({ identity, receipt, onDone, proof }) {
               const v = BigInt(p);
               const val = i === 3 ? money(v, BigInt(proof.publicInputs[4])) : i === 5 ? new Date(Number(v) * 1000).toISOString().replace('.000Z', 'Z') : i === 4 ? (Number(v) === 840 ? 'USD (840)' : 'INR (356)') : i === 2 || i === 8 ? v.toString() : short('0x' + v.toString(16), 8);
               return (
-                <div key={i} className="grid grid-cols-[1fr_auto] gap-x-4 px-5 py-3 text-sm md:grid-cols-[180px_1fr_auto]">
+                <motion.div key={i} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.06, duration: 0.45, ease }} className="grid grid-cols-[1fr_auto] gap-x-4 px-5 py-3 text-sm md:grid-cols-[180px_1fr_auto]">
                   <span className="mono">{PUBS[i][0]}</span>
                   <span className="hidden text-ink-3 md:block">{PUBS[i][1]}</span>
                   <span className="mono text-right">{val}</span>
-                </div>
+                </motion.div>
               );
             })}
           </div>
