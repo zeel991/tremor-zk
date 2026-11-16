@@ -25,7 +25,7 @@ ZKV_AGGREGATION = "0x0807C544D38aE7729f8798388d89Be6502A1e8A8"  # SPEC §19.2 (B
 ZKV_DOMAIN_ID = "2"
 # Registered VK hashes per circuit, keccak256(0x03 || vk) (SPEC §19.1). JSON object.
 VK_HASHES = '{"rsa2048":"0xdaed0392d385e69b68439cec05cc21183fad4ac8c04e7eacb16ced17123f9880","rsa1024":"0x69d3c79b9a373868547ce0520a433467d1c891ca14f979af1791420a3ca17e32"}'
-ALLOWED_ORIGINS = "https://tremor.in,https://www.tremor.in,https://tremor-zk.vercel.app,http://localhost:5181"
+ALLOWED_ORIGINS = "https://tremor.in,https://www.tremor.in,https://app.tremor.in,https://tremor-zk.vercel.app,http://localhost:5181"
 MAX_SUBMISSIONS_PER_DAY = "50"
 DECISION_TTL_SECONDS = "3600"
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"

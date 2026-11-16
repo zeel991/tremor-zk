@@ -2,12 +2,13 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform, useInView, useMotionValueEvent, AnimatePresence } from 'motion/react';
 import { ArrowUpRight, ArrowRight, Waveform, GithubLogo, Plus, Minus, CheckCircle, XCircle } from '@phosphor-icons/react';
 import { Magnetic, useSmoothScroll } from '../components/fx.jsx';
+import { APP_URL } from '../lib/site.js';
 
 const Hero3D = lazy(() => import('../components/Hero3D.jsx'));
 function webglOk() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } }
 
 const ease = [0.16, 1, 0.3, 1];
-const APP = '/app'; // full page load: the app needs cross-origin isolation headers
+const APP = APP_URL; // full page load: the app needs cross-origin isolation headers
 
 /* ------------------------------------------------------------------ motion primitives */
 
@@ -433,7 +434,7 @@ function FinalCta() {
           <a href="/" className="flex items-center gap-2 text-ink"><Waveform size={18} weight="bold" className="text-accent" />tremor</a>
           <div className="flex gap-6 md:justify-center">
             <a href={APP} className="hover:text-ink">App</a>
-            <a href="/app#verify" className="hover:text-ink">Verify a payout</a>
+            <a href={`${APP_URL}#verify`} className="hover:text-ink">Verify a payout</a>
             <a href="https://github.com/zeel991" className="flex items-center gap-1 hover:text-ink"><GithubLogo size={15} />GitHub</a>
           </div>
           <div className="md:text-right">Built on zkVerify for Agent Games 2026</div>
