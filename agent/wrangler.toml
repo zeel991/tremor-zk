@@ -1,14 +1,13 @@
-# ReceiptProof agent. Free plan only (SPEC §11). Do not deploy from this file
-# until the placeholders below are replaced and the secrets are set.
-name = "receiptproof-agent"
+# Tremor agent (Cloudflare Worker + D1, free plan). Deployed as tremor-agent.
+name = "tremor-agent"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "receiptproof"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_name = "tremor"
+database_id = "303a3031-f4dd-46cb-b9d5-4a3770ec09a4"
 migrations_dir = "migrations"
 
 [ai]
@@ -25,8 +24,8 @@ RPC_URL = "https://sepolia.base.org"
 ZKV_AGGREGATION = "0x0807C544D38aE7729f8798388d89Be6502A1e8A8"  # SPEC §19.2 (Base: 0xCb47A3C3B9Eb2E549a3F2EA4729De28CafbB2b69)
 ZKV_DOMAIN_ID = "2"
 # Registered VK hashes per circuit, keccak256(0x03 || vk) (SPEC §19.1). JSON object.
-VK_HASHES = '{"rsa2048":"0xREPLACE","rsa1024":"0xREPLACE"}'
-ALLOWED_ORIGINS = "http://localhost:5173"                    # comma separated; add the Pages origin
+VK_HASHES = '{"rsa2048":"0xdaed0392d385e69b68439cec05cc21183fad4ac8c04e7eacb16ced17123f9880","rsa1024":"0x69d3c79b9a373868547ce0520a433467d1c891ca14f979af1791420a3ca17e32"}'
+ALLOWED_ORIGINS = "https://tremor.in,https://www.tremor.in,https://tremor-zk.vercel.app,http://localhost:5181"
 MAX_SUBMISSIONS_PER_DAY = "50"
 DECISION_TTL_SECONDS = "3600"
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
@@ -34,8 +33,8 @@ POLL_BATCH = "10"
 # KEY_LOGS_FROM_BLOCK = "<vault deploy block>"   # optional: discover DKIM keys from KeyProposed events
 # MULTICALL3_ADDRESS = ""                       # only for chains without canonical Multicall3 (local anvil)
 # Sandbox (vault 0) endpoints
-SAMPLE_DKIM_DOMAIN = "REPLACE_WITH_TEST_DOMAIN"
-SAMPLE_DKIM_SELECTOR = "REPLACE_WITH_SELECTOR"
+SAMPLE_DKIM_DOMAIN = "sandbox.tremor.in"
+SAMPLE_DKIM_SELECTOR = "tremor1"
 SAMPLE_RECEIPTS_PER_IP_PER_DAY = "5"
 REGISTRATIONS_PER_IP_PER_DAY = "3"
 

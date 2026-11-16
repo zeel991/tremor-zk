@@ -1,5 +1,5 @@
 {
-  "name": "receiptproof-web",
+  "name": "tremor-web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,13 +10,23 @@
   },
   "dependencies": {
     "@aztec/bb.js": "^5.3.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@noble/hashes": "^2.4.0",
     "@noir-lang/noir_js": "^1.0.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@zk-email/zkemail-nr": "^2.0.0",
     "buffer": "^6.0.3",
-    "viem": "^2.57.19"
+    "motion": "^14.14.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6",
+    "viem": "^2.57.20"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.3.5",
     "vite": "^6.4.6",
     "vite-plugin-node-polyfills": "^0.28.0"
   }

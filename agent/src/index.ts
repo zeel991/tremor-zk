@@ -1,3 +1,4 @@
+import { samplePublicKey } from "./sample";
 import { getAddress, type Address, type Hex } from "viem";
 import type { VaultReader, VaultSettler } from "./chain/reader.js";
 import { ViemVaultReader, ViemVaultSettler } from "./chain/viem.js";
@@ -180,6 +181,14 @@ export async function handleRequest(req: Request, env: Env, ctx: ExecutionContex
     }
 
     if (req.method !== "GET") return json({ error: "METHOD_NOT_ALLOWED" }, 405, cors);
+
+    if (path === "/api/sandbox-key") {
+      if (!env.SAMPLE_DKIM_PRIVATE_KEY || !env.SAMPLE_DKIM_DOMAIN || !env.SAMPLE_DKIM_SELECTOR) return json({ error: "SAMPLE_NOT_CONFIGURED" }, 503, cors);
+      const k = await samplePublicKey(env.SAMPLE_DKIM_PRIVATE_KEY);
+      return new Response(JSON.stringify({ domain: env.SAMPLE_DKIM_DOMAIN, selector: env.SAMPLE_DKIM_SELECTOR, ...k }), {
+        status: 200, headers: { "content-type": "application/json", "cache-control": "public, max-age=300", ...cors },
+      });
+    }
 
     const m = path.match(/^\/api\/claim\/([0-9a-fA-F-]{36})$/);
     if (m) {

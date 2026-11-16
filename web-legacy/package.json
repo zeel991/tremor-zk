@@ -1,0 +1,23 @@
+{
+  "name": "receiptproof-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "circuits": "mkdir -p public/circuits src/rp && cp ../circuits/target/receipt_rsa2048.json ../circuits/target/receipt_rsa1024.json ../circuits/target/commit.json public/circuits/ && cp ../circuits/js/lib/*.mjs src/rp/",
+    "dev": "npm run circuits && vite",
+    "build": "npm run circuits && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "^5.3.0",
+    "@noble/hashes": "^2.4.0",
+    "@noir-lang/noir_js": "^1.0.0",
+    "@zk-email/zkemail-nr": "^2.0.0",
+    "buffer": "^6.0.3",
+    "viem": "^2.57.19"
+  },
+  "devDependencies": {
+    "vite": "^6.4.6",
+    "vite-plugin-node-polyfills": "^0.28.0"
+  }
+}

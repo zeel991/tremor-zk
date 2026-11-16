@@ -1,5 +1,5 @@
+node_modules/
+dist/
 src/rp/
 public/circuits/
-dist/
-node_modules/
-public/config.json
+.vercel

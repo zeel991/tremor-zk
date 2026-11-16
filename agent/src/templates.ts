@@ -13,8 +13,8 @@ export const TEMPLATES: Record<number, Template> = {
   2: { id: 2, merchant: "Swiggy", currency: 356, category: "meals" },
   3: { id: 3, merchant: "Zomato", currency: 356, category: "meals" },
   4: { id: 4, merchant: "Amazon.in", currency: 356, category: "shopping" },
-  100: { id: 100, merchant: "ReceiptProof Test Merchant", currency: 356, category: "test" },
-  101: { id: 101, merchant: "ReceiptProof Test Merchant USD", currency: 840, category: "test" },
+  100: { id: 100, merchant: "Tremor Test Merchant", currency: 356, category: "test" },
+  101: { id: 101, merchant: "Tremor Test Merchant USD", currency: 840, category: "test" },
 };
 
 export const SUPPORTED_CURRENCIES = new Set([356, 840]);

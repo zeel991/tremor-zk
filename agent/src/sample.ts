@@ -77,7 +77,7 @@ export function sampleAmountMinor(amount: unknown): number | null {
 }
 
 const FILLER =
-  "Thanks for your order at the ReceiptProof Test Merchant. This is a sample receipt signed with our own test domain's DKIM key; it is not from a real merchant.\n";
+  "Thanks for your order at the Tremor Test Merchant. This is a sample receipt signed with our own test domain's DKIM key; it is not from a real merchant.\n";
 
 export interface SampleInput {
   to: string;
@@ -92,17 +92,27 @@ export interface SampleInput {
 export function sampleHeadersAndBody({ to, amountMinor, nowMs, id, domain }: Omit<SampleInput, "privateKey" | "selector">) {
   const amount = `${Math.floor(amountMinor / 100)}.${p2(amountMinor % 100)}`;
   const headers: [string, string][] = [
-    ["From", `ReceiptProof Test Merchant <receipts@${domain}>`],
+    ["From", `Tremor Test Merchant <receipts@${domain}>`],
     ["To", to],
     ["Subject", "Your ReceiptProof sample receipt"],
     ["Date", rfc5322Date(nowMs)],
     ["Message-ID", `<sample-${id}@${domain}>`],
   ];
-  const body = `Hello,\n\n${FILLER}\nOrder #RP-${id.slice(0, 8).toUpperCase()}\nAmount paid: INR ${amount}\nPaid with card ending 4242.\n\nReceiptProof Test Merchant\n`;
+  const body = `Hello,\n\n${FILLER}\nOrder #RP-${id.slice(0, 8).toUpperCase()}\nAmount paid: INR ${amount}\nPaid with card ending 4242.\n\nTremor Test Merchant\n`;
   return { headers, body };
 }
 
 export async function buildSampleReceipt(i: SampleInput): Promise<string> {
   const { headers, body } = sampleHeadersAndBody(i);
   return signEmail({ headers, body, domain: i.domain, selector: i.selector, privateKey: i.privateKey });
+}
+
+/** Public half of the sample-receipt DKIM key, for in-browser verification (the sandbox has no DNS record). */
+export async function samplePublicKey(pem: string): Promise<{ modulus: string; bits: number }> {
+  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const der = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, true, ["sign"]);
+  const jwk = (await crypto.subtle.exportKey("jwk", key)) as JsonWebKey;
+  const n = Uint8Array.from(atob(jwk.n!.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(jwk.n!.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+  return { modulus: "0x" + Array.from(n, (b) => b.toString(16).padStart(2, "0")).join(""), bits: n.length * 8 };
 }
