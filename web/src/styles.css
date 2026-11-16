@@ -77,11 +77,13 @@ body {
     var(--bg);
 }
 
-/* Legacy names kept for the app page. */
-.frame { position: relative; border: 1px solid var(--line); border-radius: 18px; }
-.grip { display: none; }
-.box { display: inline-block; width: 6px; height: 6px; background: currentColor; opacity: .5; }
-.box-on { background: var(--accent); opacity: 1; }
+/* Legacy names kept for the app page. In a layer so Tailwind utilities (hidden, sm:...) win. */
+@layer components {
+  .frame { position: relative; border: 1px solid var(--line); border-radius: 18px; }
+  .grip { display: none; }
+  .box { display: inline-block; width: 6px; height: 6px; background: currentColor; opacity: .5; }
+  .box-on { background: var(--accent); opacity: 1; }
+}
 
 .btn {
   display: inline-flex; align-items: center; gap: .55rem; white-space: nowrap;
