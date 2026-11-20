@@ -6,7 +6,7 @@
 
 Built for zkVerify Agent Games 2026 (Wildcard).
 
-> **Status (2026-11-21):** the site (tremor.in), the app (app.tremor.in) and the agent Worker are live. In the browser you can get a sample receipt signed by the Tremor sandbox DKIM key, verify it, and prove it with UltraHonk ZK. The testnet settlement vault (Base Sepolia) and Kurier submission are not live yet: they need a funded deployer, test USDC and a Kurier testnet key. Until then, Submit explains this and offers the claim as a download.
+> **Status (2026-11-21):** the site (tremor.in), the app (app.tremor.in), the agent Worker and the Base Sepolia sandbox vault are live. First end-to-end testnet payout (20 Nov 2026): a INR 25 sandbox receipt, proved with the same circuit the app runs, approved by the agent, verified on zkVerify Volta (tx `0x28b30606a26a241bff03f95d88948502a71210e1eef9d09f98b2830e8f248743`, aggregation 67329, domain 2) and paid 0.297619 USDC by the vault on Base Sepolia (tx `0xfa73d4cd4a065541ae5454f3a38f67d49201e19e3ec6282db38eadc3ac479d28`). Sandbox vault: `0xCDF6bdB3d70Eb86f8c5aC5a880c453a4eeA3bf50` (10-minute key/FX delays, locked; mainnet keeps 24 h).
 
 ## The problem
 - Generative AI fakes receipt images in seconds. Expense-audit vendors report AI-generated receipts as a fast-growing share of fraud.
