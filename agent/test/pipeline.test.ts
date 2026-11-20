@@ -138,6 +138,32 @@ describe("cron poller", () => {
     expect(await d.repo.getClaim(id)).toMatchObject({ status: "PAID", proof: null, base_tx: "0x" + "ee".repeat(32) });
   });
 
+  it("without Kurier's published tx (testnet), settles only once zkVerify's root is on chain and matches", async () => {
+    const { id, job } = await submitted();
+    const ROOT = "0x" + "9c".repeat(32);
+    const ZERO = "0x" + "00".repeat(32);
+    let onChain = ZERO;
+    const aggregationRoot = vi.fn(async () => onChain as `0x${string}`);
+    d.reader = { ...d.reader, aggregationRoot };
+    d.cfg = { ...d.cfg, zkvAggregation: "0x0807C544D38aE7729f8798388d89Be6502A1e8A8", zkvDomainId: 2 };
+    const leaf = statementLeaf(VK_HASH, pubsToArray(goodPubs()));
+    const st = { ...aggregated(leaf), aggregationPublished: undefined };
+    st.aggregationDetails = { ...st.aggregationDetails, root: ROOT } as typeof st.aggregationDetails;
+    sub.setStatus(job, st);
+
+    await pollOnce(d); // root not published yet
+    expect((await d.repo.getClaim(id))!.status).toBe("SUBMITTED");
+    expect(aggregationRoot).toHaveBeenCalledWith("0x0807C544D38aE7729f8798388d89Be6502A1e8A8", 2n, 65470n);
+
+    onChain = "0x" + "77".repeat(32); // a different root: still wait
+    await pollOnce(d);
+    expect((await d.repo.getClaim(id))!.status).toBe("SUBMITTED");
+
+    onChain = ROOT;
+    const s = await pollOnce(d);
+    expect(s.transitions).toEqual([{ id, from: "SUBMITTED", to: "SETTLE_SENT" }]);
+  });
+
   it("a failed job is retried exactly once, then FAILED", async () => {
     const { id, job } = await submitted();
     sub.setStatus(job, { status: "Failed" });

@@ -64,6 +64,8 @@ export interface VaultReader {
    * every KeyProposed event since `logsFromBlock` (when given). Unknown hashes are dropped.
    */
   dkimKeys(vault: Address, knownHashes: bigint[], logsFromBlock?: bigint): Promise<DkimKeyView[]>;
+  /** Root zkVerify published for (domainId, aggregationId) on this chain; zero bytes32 if not yet published. */
+  aggregationRoot?(zkv: Address, domainId: bigint, aggregationId: bigint): Promise<Hex>;
 }
 
 export interface ClaimArgs {

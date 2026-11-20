@@ -26,6 +26,8 @@ export function configFromEnv(env: Env): AgentConfig {
     decisionTtlSeconds: Number(env.DECISION_TTL_SECONDS || "3600"),
     pollBatch: Number(env.POLL_BATCH || "10"),
     agentKey: env.AGENT_PRIVATE_KEY ? (env.AGENT_PRIVATE_KEY as Hex) : undefined,
+    zkvAggregation: env.ZKV_AGGREGATION ? (getAddress(env.ZKV_AGGREGATION) as Hex) : undefined,
+    zkvDomainId: env.ZKV_DOMAIN_ID ? Number(env.ZKV_DOMAIN_ID) : undefined,
   };
 }
 
@@ -65,6 +67,7 @@ function lazyReader(env: Env, chainId: number): VaultReader {
     snapshot: (v, q) => get().snapshot(v, q),
     overview: (v, t) => get().overview(v, t),
     dkimKeys: (v, h, b) => get().dkimKeys(v, h, b),
+    aggregationRoot: (z, dom, id) => get().aggregationRoot(z, dom, id),
   };
 }
 

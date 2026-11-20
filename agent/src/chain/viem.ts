@@ -29,6 +29,15 @@ export class ViemVaultReader implements VaultReader {
     this.client = createPublicClient({ chain: this.chain, transport: http(rpcUrl) });
   }
 
+  async aggregationRoot(zkv: Address, domainId: bigint, aggregationId: bigint): Promise<Hex> {
+    return this.client.readContract({
+      address: zkv,
+      abi: [{ type: "function", name: "proofsAggregations", stateMutability: "view", inputs: [{ name: "domainId", type: "uint256" }, { name: "aggregationId", type: "uint256" }], outputs: [{ name: "", type: "bytes32" }] }] as const,
+      functionName: "proofsAggregations",
+      args: [domainId, aggregationId],
+    });
+  }
+
   /** Two RPC round trips: one multicall for vault state + chain time, one for the USDC balance. */
   async snapshot(vault: Address, q: SnapshotQuery): Promise<VaultSnapshot> {
     const c = { address: vault, abi: vaultAbi } as const;

@@ -17,6 +17,9 @@ export interface AgentConfig {
   decisionTtlSeconds: number;
   pollBatch: number;
   agentKey?: Hex;
+  /** zkVerify aggregation contract and domain on the settlement chain, for the on-chain published-root check. */
+  zkvAggregation?: Hex;
+  zkvDomainId?: number;
 }
 
 export interface Deps {

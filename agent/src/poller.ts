@@ -76,8 +76,10 @@ async function stepSubmitted(c: ClaimRow, d: Deps) {
   if (isFailureStatus(st.status)) return failOrRetry(c, d, `kurier ${st.status}`);
 
   const ad = st.aggregationDetails;
-  const published = st.aggregationPublished?.destinationTxHash;
-  if (st.status !== "Aggregated" || !published || !ad?.merkleProof || ad.leafIndex == null || ad.numberOfLeaves == null || st.aggregationId == null) return;
+  if (st.status !== "Aggregated" || !ad?.merkleProof || ad.leafIndex == null || ad.numberOfLeaves == null || st.aggregationId == null) return;
+  // Published on the settlement chain? Kurier mainnet reports the destination tx; Kurier testnet omits it,
+  // so fall back to reading the root zkVerify stored on chain and requiring it to equal Kurier's root.
+  if (!st.aggregationPublished?.destinationTxHash && !(await rootPublishedOnChain(ad.root, st.aggregationId, d))) return;
 
   // Our leaf must be the one zkVerify aggregated (SPEC §7.1 step 8 [VERIFY]); otherwise claim() would revert.
   const local = statementLeaf(c.vk_hash as Hex, pubsOf(c));
@@ -97,6 +99,16 @@ async function stepSubmitted(c: ClaimRow, d: Deps) {
     },
     d,
   );
+}
+
+async function rootPublishedOnChain(root: string | undefined, aggregationId: number, d: Deps): Promise<boolean> {
+  if (!root || !d.reader.aggregationRoot || !d.cfg.zkvAggregation || d.cfg.zkvDomainId == null) return false;
+  try {
+    const onChain = await d.reader.aggregationRoot(d.cfg.zkvAggregation, BigInt(d.cfg.zkvDomainId), BigInt(aggregationId));
+    return onChain.toLowerCase() === root.toLowerCase();
+  } catch {
+    return false; // RPC hiccup: try again on the next cron run
+  }
 }
 
 async function stepSettle(c: ClaimRow, d: Deps) {

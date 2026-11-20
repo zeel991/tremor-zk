@@ -288,6 +288,19 @@ export const receiptVaultAbi = [
   },
   {
     "type": "function",
+    "name": "delaysLocked",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "deposit",
     "inputs": [
       {
@@ -464,6 +477,32 @@ export const receiptVaultAbi = [
   },
   {
     "type": "function",
+    "name": "fxDelay",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "fxDelayOverride",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "fxHistory",
     "inputs": [
       {
@@ -540,6 +579,32 @@ export const receiptVaultAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "keyActivationDelay",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "keyDelayOverride",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -842,6 +907,24 @@ export const receiptVaultAbi = [
         "name": "agent_",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDelays",
+    "inputs": [
+      {
+        "name": "keyDelay",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "fxDelay_",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [],
@@ -1169,6 +1252,25 @@ export const receiptVaultAbi = [
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DelaysSet",
+    "inputs": [
+      {
+        "name": "keyActivationDelay",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "fxDelay",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
@@ -1544,6 +1646,11 @@ export const receiptVaultAbi = [
         "internalType": "uint64"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "DelaysLocked",
+    "inputs": []
   },
   {
     "type": "error",
