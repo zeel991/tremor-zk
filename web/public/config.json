@@ -1,0 +1,6 @@
+{
+  "agentUrl": "https://tremor-agent.agent-games-gatekeeper.workers.dev",
+  "vaultId": 0,
+  "vaultAddress": "0xCDF6bdB3d70Eb86f8c5aC5a880c453a4eeA3bf50",
+  "zkvExplorer": "https://zkverify-testnet.subscan.io"
+}

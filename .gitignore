@@ -14,3 +14,4 @@ circuits/**/target/
 *.key
 *.pem
 !fixtures/public/*.pub.pem
+.e2e/
