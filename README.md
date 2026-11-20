@@ -1,12 +1,12 @@
 # Tremor (ReceiptProof)
 
-**Live: https://tremor.in** · app: https://tremor.in/app · agent API: https://tremor-agent.agent-games-gatekeeper.workers.dev
+**Live: https://tremor.in** · app: https://app.tremor.in · agent API: https://tremor-agent.agent-games-gatekeeper.workers.dev
 
 **Expense receipts that prove themselves.** An expense agent that pays a receipt only when a zero-knowledge proof shows the merchant's own DKIM email signature covers that total. zkVerify verifies the proof, and a vault on Base pays USDC. The email never leaves the employee's browser.
 
 Built for zkVerify Agent Games 2026 (Wildcard).
 
-> **Status (2026-11-16):** the web app (tremor.in) and the agent Worker are live. In the browser you can get a sample receipt signed by the Tremor sandbox DKIM key, verify it, and prove it with UltraHonk ZK. The testnet settlement vault (Base Sepolia) and Kurier submission are not live yet: they need a funded deployer, test USDC and a Kurier testnet key. Until then, Submit explains this and offers the claim as a download.
+> **Status (2026-11-21):** the site (tremor.in), the app (app.tremor.in) and the agent Worker are live. In the browser you can get a sample receipt signed by the Tremor sandbox DKIM key, verify it, and prove it with UltraHonk ZK. The testnet settlement vault (Base Sepolia) and Kurier submission are not live yet: they need a funded deployer, test USDC and a Kurier testnet key. Until then, Submit explains this and offers the claim as a download.
 
 ## The problem
 - Generative AI fakes receipt images in seconds. Expense-audit vendors report AI-generated receipts as a fast-growing share of fraud.
