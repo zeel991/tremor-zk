@@ -46,6 +46,7 @@ contract ReceiptVault is
 
     // ---------------------------------------------------------------- constants
 
+    /// @dev Default timelocks. A vault can set shorter ones once, before its first key or rate (setDelays).
     uint256 public constant KEY_ACTIVATION_DELAY = 24 hours;
     uint256 public constant FX_DELAY = 24 hours;
     uint256 public constant MAX_RECEIPT_AGE = 60 days;
@@ -112,7 +113,13 @@ contract ReceiptVault is
 
     address public registrar; // sandbox gas relayer (registerFor)
 
-    uint256[39] private __gap;
+    // Timelock overrides (0 = default 24 h). Settable once, only before the first key or FX rate is queued,
+    // so a key can never activate faster than the delay that was public when it was proposed.
+    uint64 public keyDelayOverride;
+    uint64 public fxDelayOverride;
+    bool public delaysLocked;
+
+    uint256[38] private __gap;
 
     // ---------------------------------------------------------------- errors (one per claim check)
 
@@ -148,8 +155,11 @@ contract ReceiptVault is
     error UsdRateFixed();
     error ZeroRate();
     error NotRegistrar();
+    error DelaysLocked();
 
     // ---------------------------------------------------------------- events
+
+    event DelaysSet(uint64 keyActivationDelay, uint64 fxDelay);
 
     event Claimed(
         uint256 indexed nullifier,
@@ -350,13 +360,33 @@ contract ReceiptVault is
         if (err != ECDSA.RecoverError.NoError || signer != agent) revert BadAgentSignature();
     }
 
+    // ---------------------------------------------------------------- timelocks
+
+    /// @notice One-time timelock setting for this vault, e.g. a short delay on a testnet sandbox vault.
+    ///         Only before the first proposeKey/queueFxRate; 0 keeps the 24 h default.
+    function setDelays(uint64 keyDelay, uint64 fxDelay_) external onlyOwner {
+        if (delaysLocked) revert DelaysLocked();
+        keyDelayOverride = keyDelay;
+        fxDelayOverride = fxDelay_;
+        emit DelaysSet(uint64(keyActivationDelay()), uint64(fxDelay()));
+    }
+
+    function keyActivationDelay() public view returns (uint256) {
+        return keyDelayOverride == 0 ? KEY_ACTIVATION_DELAY : keyDelayOverride;
+    }
+
+    function fxDelay() public view returns (uint256) {
+        return fxDelayOverride == 0 ? FX_DELAY : fxDelayOverride;
+    }
+
     // ---------------------------------------------------------------- FX (SPEC §19.5)
 
     /// @notice Queue a rate (USDC base units per one minor unit, scaled 1e18), effective in 24 h.
     function queueFxRate(uint256 currency, uint192 rateE18) external onlyOwner {
         if (currency == USD) revert UsdRateFixed();
         if (rateE18 == 0) revert ZeroRate();
-        uint64 eff = uint64(block.timestamp + FX_DELAY);
+        delaysLocked = true;
+        uint64 eff = uint64(block.timestamp + fxDelay());
         _fx[currency].push(FxPoint(eff, rateE18));
         emit FxRateQueued(currency, rateE18, eff);
     }
@@ -395,7 +425,8 @@ contract ReceiptVault is
         }
         DkimKey storage k = _keys[pubkeyHash];
         if (k.domainHash != bytes32(0) && !k.cancelled) revert KeyExists(pubkeyHash);
-        uint64 activatesAt = uint64(block.timestamp + KEY_ACTIVATION_DELAY);
+        delaysLocked = true;
+        uint64 activatesAt = uint64(block.timestamp + keyActivationDelay());
         _keys[pubkeyHash] = DkimKey(keccak256(bytes(domain)), activatesAt, false, domain, selector, modulus);
         emit KeyProposed(pubkeyHash, domain, selector, modulus, activatesAt);
     }

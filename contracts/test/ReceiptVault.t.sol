@@ -739,6 +739,54 @@ contract ReceiptVaultTest is Test {
         _claimOk(_inr(100));
     }
 
+    // ------------------------------------------------------------ configurable timelocks
+
+    function test_delays_defaultTo24h() public view {
+        assertEq(vault.keyActivationDelay(), 24 hours);
+        assertEq(vault.fxDelay(), 24 hours);
+        assertTrue(vault.delaysLocked()); // setUp already proposed keys
+    }
+
+    function test_setDelays_lockedAfterFirstKey() public {
+        vm.prank(owner);
+        vm.expectRevert(ReceiptVault.DelaysLocked.selector);
+        vault.setDelays(10 minutes, 10 minutes);
+    }
+
+    function test_setDelays_shortSandboxDelay_appliesToKeysAndFx() public {
+        ReceiptVault v = _deploy(99);
+        vm.prank(mallory);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", mallory));
+        v.setDelays(10 minutes, 10 minutes);
+
+        vm.startPrank(owner);
+        vm.expectEmit(address(v));
+        emit ReceiptVault.DelaysSet(10 minutes, 5 minutes);
+        v.setDelays(10 minutes, 5 minutes);
+        assertEq(v.keyActivationDelay(), 10 minutes);
+        assertEq(v.fxDelay(), 5 minutes);
+        v.proposeKey(0x7777, "sandbox.tremor.in", "tremor1", new bytes(256));
+        assertTrue(v.delaysLocked());
+        vm.expectRevert(ReceiptVault.DelaysLocked.selector);
+        v.setDelays(1, 1); // cannot shorten after a key exists
+        v.queueFxRate(INR, INR_RATE);
+        vm.stopPrank();
+
+        assertEq(v.activeKeyDomain(0x7777), bytes32(0));
+        vm.warp(block.timestamp + 10 minutes);
+        assertEq(v.activeKeyDomain(0x7777), keccak256("sandbox.tremor.in"));
+        assertEq(v.rateAt(INR, block.timestamp), INR_RATE);
+    }
+
+    function test_setDelays_lockedAfterFirstFxRate() public {
+        ReceiptVault v = _deploy(98);
+        vm.startPrank(owner);
+        v.queueFxRate(INR, INR_RATE);
+        vm.expectRevert(ReceiptVault.DelaysLocked.selector);
+        v.setDelays(1, 1);
+        vm.stopPrank();
+    }
+
     function test_cannotReinitialize() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         vault.initialize(mallory, IERC20(address(usdc)), 0, IZkVerifyAggregation(address(agg)), 0, 0, mallory, 0);

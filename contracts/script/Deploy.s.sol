@@ -49,6 +49,8 @@ contract Deploy is Script {
         );
         vault = ReceiptVault(address(new ERC1967Proxy(address(impl), init)));
 
+        _setDelays(vault); // optional sandbox timelocks; must precede any key or rate
+
         bytes32[] memory vks = vm.envOr("ACCEPTED_VKS", ",", new bytes32[](0));
         for (uint256 i; i < vks.length; i++) vault.setAcceptedVk(vks[i], true);
 
@@ -65,6 +67,12 @@ contract Deploy is Script {
         console2.log("vault (proxy) ", address(vault));
         console2.log("vaultId       ", vaultId);
         console2.log("owner         ", owner);
+    }
+
+    function _setDelays(ReceiptVault vault) internal {
+        uint256 keyDelay = vm.envOr("KEY_DELAY_SECONDS", uint256(0));
+        uint256 fxDelay = vm.envOr("FX_DELAY_SECONDS", uint256(0));
+        if (keyDelay > 0 || fxDelay > 0) vault.setDelays(uint64(keyDelay), uint64(fxDelay));
     }
 
     function _configureMerchants(ReceiptVault vault) internal {
