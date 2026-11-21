@@ -42,4 +42,26 @@ export async function verifyPayout(txHash) {
   steps.push({ ok: included, title: 'zkVerify attests this exact statement was verified', detail: `aggregation contract ${zkv}, domain ${domainId}` });
   return { steps, pubs: pubs.map(String), ok: steps.every((s) => s.ok) };
 }
+const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const ERC20_BALANCE = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }] }];
+const ZKV_ROOTS = [{ type: 'function', name: 'proofsAggregations', stateMutability: 'view', inputs: [{ type: 'uint256' }, { type: 'uint256' }], outputs: [{ type: 'bytes32' }] }];
+
+/** Read straight from Base Sepolia, in this browser: the USDC Transfer in the payout, its block time,
+ *  the wallet's balance now, and the aggregation root zkVerify published. Nothing comes from Tremor. */
+export async function payoutFacts({ baseTx, wallet, aggregationId }) {
+  const c = client();
+  const receipt = await c.getTransactionReceipt({ hash: baseTx });
+  const pad = (a) => '0x' + a.slice(2).toLowerCase().padStart(64, '0');
+  const log = receipt.logs.find((l) => l.address.toLowerCase() === CONFIG.usdc.toLowerCase() && l.topics[0] === TRANSFER && l.topics[2]?.toLowerCase() === pad(wallet));
+  const block = await c.getBlock({ blockNumber: receipt.blockNumber });
+  const [balance, root] = await Promise.all([
+    c.readContract({ address: CONFIG.usdc, abi: ERC20_BALANCE, functionName: 'balanceOf', args: [wallet] }),
+    aggregationId != null ? c.readContract({ address: CONFIG.zkvAggregation, abi: ZKV_ROOTS, functionName: 'proofsAggregations', args: [BigInt(CONFIG.domainId), BigInt(aggregationId)] }) : null,
+  ]);
+  return {
+    status: receipt.status, block: receipt.blockNumber, time: new Date(Number(block.timestamp) * 1000),
+    transfer: log ? { from: '0x' + log.topics[1].slice(26), amount: BigInt(log.data) } : null,
+    balance, root,
+  };
+}
 export { formatUnits };

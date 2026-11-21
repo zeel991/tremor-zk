@@ -9,7 +9,7 @@ import { Tour, TourPrompt } from '../components/Tour.jsx';
 import { loadConfig, CONFIG } from '../lib/config.js';
 import { computeToCommit, proveInWorker } from '../lib/prover.js';
 import { resolveKey } from '../lib/keys.js';
-import { verifyPayout } from '../lib/chain.js';
+import { verifyPayout, payoutFacts, formatUnits } from '../lib/chain.js';
 import { parseEmail, verifyWithModulus } from '@rp/dkim-verify.mjs';
 import { buildInputs } from '@rp/inputs.mjs';
 import { TEMPLATES } from '@rp/templates.mjs';
@@ -440,6 +440,99 @@ function SubmitStep({ proof }) {
   );
 }
 
+const RUN_KEY = 'tremor.lastrun.v1';
+const loadRun = () => { try { return JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); } catch { return null; } };
+const saveRun = (r) => { try { localStorage.setItem(RUN_KEY, JSON.stringify(r)); } catch {} };
+const usdc = (v) => `${formatUnits(BigInt(v), 6)} USDC`;
+
+function CopyBtn({ text, label = 'Copy' }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <button type="button" onClick={() => { navigator.clipboard?.writeText(text).then(() => { setOk(true); setTimeout(() => setOk(false), 1400); }); }}
+      aria-label={`${label} ${text}`} className="inline-flex items-center gap-1 text-xs text-ink-3 hover:text-ink">
+      {ok ? <CheckCircle size={14} weight="fill" className="text-ok" /> : <Copy size={14} />}{ok ? 'Copied' : label}
+    </button>
+  );
+}
+
+function HashRow({ n, title, chain, value, href, note }) {
+  return (
+    <li className="grid gap-1.5 border-t border-line px-4 py-3.5 first:border-t-0 md:grid-cols-[200px_1fr] md:gap-4">
+      <div><span className="micro text-ink-3">{n} · {chain}</span><div className="text-sm">{title}</div></div>
+      <div className="min-w-0">
+        <div className="mono break-all text-[.8rem] text-ink">{value}</div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-4">
+          <CopyBtn text={value} />
+          {href && <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-accent hover:underline">Open in explorer <ArrowSquareOut size={13} /></a>}
+          {note && <span className="text-xs text-ink-3">{note}</span>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** Proof of payment: every hash in full, plus checks this browser runs against Base Sepolia itself. */
+function ProofCard({ run }) {
+  const [facts, setFacts] = useState(null);
+  const [check, setCheck] = useState(null);
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const recheck = useCallback(async () => {
+    setBusy(true); setErr(null);
+    try {
+      const [f, v] = await Promise.all([payoutFacts({ baseTx: run.baseTx, wallet: run.wallet, aggregationId: run.aggregationId }), verifyPayout(run.baseTx)]);
+      setFacts(f); setCheck(v);
+    } catch (e) { setErr(e.shortMessage || e.message); } finally { setBusy(false); }
+  }, [run]);
+  useEffect(() => { recheck(); }, [recheck]);
+  const X = CONFIG.explorer;
+  const fromVault = facts?.transfer && CONFIG.vaultAddress && facts.transfer.from.toLowerCase() === CONFIG.vaultAddress.toLowerCase();
+  const rootOk = facts?.root && !/^0x0+$/.test(facts.root);
+  return (
+    <section data-tour="proof" className="frame mb-8 bg-bg p-6 md:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <span className="micro tag text-accent">Proof of payment</span>
+          <h2 className="display mt-4 text-[clamp(1.7rem,3.4vw,2.8rem)]">{run.amountText} receipt, paid on chain.</h2>
+          <p className="mt-3 max-w-[64ch] text-ink-2">Every transaction below is public. The checks on the right ran in <em>your</em> browser against Base Sepolia just now, so none of this depends on trusting Tremor.</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button onClick={recheck} disabled={busy} className="btn btn-ghost !px-4 !py-2 text-sm">{busy && <CircleNotch size={15} className="animate-spin" />} Re-check on chain</button>
+          <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(run, null, 2))} className="btn btn-ghost !px-4 !py-2 text-sm"><Copy size={15} /> Copy all hashes</button>
+        </div>
+      </div>
+
+      <div className="mt-7 grid gap-6 xl:grid-cols-[1.25fr_1fr]">
+        <ol className="rounded-[14px] border border-line">
+          {run.regTx && <HashRow n="01" chain="Base Sepolia" title="Wallet registered with the vault" value={run.regTx} href={`${X}/tx/${run.regTx}`} />}
+          <HashRow n="02" chain="zkVerify Volta" title="Receipt proof verified" value={run.zkvTx} href={`${CONFIG.zkvExplorer}/extrinsic/${run.zkvTx}`} note="Submit_proof by Kurier" />
+          <HashRow n="03" chain="Base Sepolia" title={`Aggregation #${run.aggregationId} published`} value={facts?.root || 'reading root from zkVerify’s contract…'} href={`${X}/address/${CONFIG.zkvAggregation}`} note={`domain ${CONFIG.domainId}`} />
+          <HashRow n="04" chain="Base Sepolia" title="USDC paid by the vault" value={run.baseTx} href={`${X}/tx/${run.baseTx}`} />
+          <HashRow n="05" chain="Base Sepolia" title="Paid to (throwaway wallet)" value={run.wallet} href={`${X}/address/${run.wallet}`} note="see its USDC balance" />
+        </ol>
+
+        <div className="grid content-start gap-3 rounded-[14px] border border-line p-5">
+          <div className="micro text-ink-3">Read live from Base Sepolia</div>
+          {err && <Status kind="bad">Couldn’t read the chain: {err}</Status>}
+          {!facts && !err && <Status kind="info">Reading the transactions…</Status>}
+          {facts && <>
+            <Status kind={facts.status === 'success' ? 'ok' : 'bad'}>Payout transaction {facts.status === 'success' ? 'succeeded' : 'failed'} in block {String(facts.block)}, {facts.time.toUTCString()}</Status>
+            <Status kind={fromVault ? 'ok' : 'bad'}>{facts.transfer ? <>USDC <span className="mono">Transfer</span> event: {usdc(facts.transfer.amount)} from the vault to this wallet</> : 'No USDC transfer to this wallet in that transaction'}</Status>
+            <Status kind={facts.balance > 0n ? 'ok' : 'warn'}>Wallet balance now: {usdc(facts.balance)}</Status>
+            <Status kind={rootOk ? 'ok' : 'bad'}>zkVerify’s contract on Base holds the root for aggregation #{run.aggregationId}</Status>
+          </>}
+          {check && <>
+            <Status kind={check.ok ? 'ok' : 'bad'}>{check.ok ? 'zkVerify attests this exact receipt statement was verified' : 'The zkVerify statement check failed'}</Status>
+            <button onClick={() => setOpen((o) => !o)} className="justify-self-start text-xs text-accent underline">{open ? 'Hide' : 'Show'} how this was checked</button>
+            {open && <ol className="grid gap-2 border-t border-line pt-3">{check.steps.map((st) => <li key={st.title}><Status kind={st.ok ? 'ok' : 'bad'}><div className="text-xs">{st.title}</div><div className="mono mt-0.5 break-all text-[.7rem] text-ink-3">{st.detail}</div></Status></li>)}</ol>}
+          </>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const DEMO = [
   ['id', 'Create a throwaway inbox and wallet'],
   ['reg', 'Register them with the sandbox vault'],
@@ -458,6 +551,7 @@ function TxLink({ href, children }) {
 
 /** One click: identity → registration → signed sample → DKIM → proof → agent → zkVerify → Base → USDC. */
 function Demo({ onIdentity, onVerify }) {
+  const [paid, setPaid] = useState(loadRun);
   const [st, setSt] = useState({});
   const [info, setInfo] = useState({});
   const [err, setErr] = useState(null);
@@ -468,7 +562,7 @@ function Demo({ onIdentity, onVerify }) {
   const mark = (k, v, extra) => { setSt((s) => ({ ...s, [k]: v })); if (extra !== undefined) setInfo((i) => ({ ...i, [k]: extra })); };
 
   const run = async () => {
-    setRunning(true); setErr(null); setSt({}); setInfo({}); setStarted(Date.now());
+    setRunning(true); setErr(null); setSt({}); setInfo({}); setStarted(Date.now()); setPaid(null);
     let k = 'id';
     try {
       mark(k, 'run');
@@ -508,6 +602,8 @@ function Demo({ onIdentity, onVerify }) {
           if (s === 3) mark('agg', 'run', 'zkVerify publishes aggregations to Base every few minutes');
           if (s >= 4) { mark('agg', 'ok', `aggregation ${c.aggregationId}`); mark('paid', 'run', 'relayer is sending vault.claim'); }
           if (c.status === 'PAID') {
+            const r = { claimId: res.claimId, inbox: id.inbox, wallet: id.wallet, amountText: '₹25.00', regTx: id.registerTx || null, zkvTx: c.zkvTx, aggregationId: c.aggregationId, baseTx: c.baseTx, paidAt: new Date().toISOString() };
+            saveRun(r); setPaid(r);
             mark('paid', 'ok', <span className="flex flex-wrap items-center gap-3"><TxLink href={`${CONFIG.explorer}/tx/${c.baseTx}`}>Base tx {short(c.baseTx)}</TxLink><button onClick={() => onVerify(c.baseTx)} className="text-accent underline">verify this payout</button></span>);
             break;
           }
@@ -525,9 +621,11 @@ function Demo({ onIdentity, onVerify }) {
     return () => window.removeEventListener('tremor:run-demo', go);
   });
 
+  const proofCard = paid && !running ? <ProofCard run={paid} /> : null;
   const secs = started ? Math.round(((running ? now : Date.now()) - started) / 1000) : 0;
   const allOk = st.paid === 'ok';
   return (
+    <>
     <section className="frame mb-8 overflow-hidden bg-bg p-6 md:p-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] lg:gap-10">
         <div className="grid content-start gap-5">
@@ -539,7 +637,8 @@ function Demo({ onIdentity, onVerify }) {
             <span className="text-sm text-ink-3">About 5 minutes, mostly zkVerify aggregating to Base. Keep this tab open.</span>
           </div>
           {err && <Status kind="bad">{err}</Status>}
-          {allOk && <Status kind="ok">Paid. Every step above is on a public chain: open the links, or verify the payout yourself.</Status>}
+          {allOk && <Status kind="ok">Paid. The proof of payment is below, checked live against Base Sepolia.</Status>}
+          {!running && !allOk && paid && <Status kind="ok">Your last run was paid on {new Date(paid.paidAt).toLocaleString()}. Its proof of payment is below.</Status>}
         </div>
         <ol data-tour="demo-steps" className="grid content-start rounded-[14px] border border-line p-2">
           {DEMO.map(([k, label]) => (
@@ -556,6 +655,8 @@ function Demo({ onIdentity, onVerify }) {
         </ol>
       </div>
     </section>
+    {proofCard}
+    </>
   );
 }
 
@@ -642,7 +743,10 @@ function Activity() {
               <span>{c.merchant || c.templateId}</span>
               <span className="mono">{money(c.amountMinor, c.currency)}</span>
               <span className="mono text-ink-3">{c.employee}</span>
-              <span>{c.status || c.decision}</span>
+              <span className="flex flex-wrap items-center gap-3">{c.status || c.decision}
+                {c.zkvTx && <a className="inline-flex items-center gap-1 text-xs text-accent" href={`${CONFIG.zkvExplorer}/extrinsic/${c.zkvTx}`} target="_blank" rel="noreferrer">zkVerify <ArrowSquareOut size={12} /></a>}
+                {c.baseTx && <a className="inline-flex items-center gap-1 text-xs text-accent" href={`${CONFIG.explorer}/tx/${c.baseTx}`} target="_blank" rel="noreferrer">Base <ArrowSquareOut size={12} /></a>}
+              </span>
             </div>
           ))}
         </div>
@@ -657,6 +761,7 @@ const TOUR = [
   { target: 'tabs', title: 'Three places to go', body: 'Prove is where receipts get proven and paid. Verify a payout lets anyone check a payment on chain. Activity lists recent claims.' },
   { target: 'demo-run', title: 'The fastest way in', body: 'One click runs everything with a signed sample receipt: no wallet, no gas, nothing to install. The USDC goes to a throwaway wallet made for you.' },
   { target: 'demo-steps', title: 'Follow every step', body: 'Each step ticks off as it happens and links to its transaction on zkVerify and Base. A full run takes about 5 minutes, mostly zkVerify aggregating to Base.' },
+  { target: 'proof', title: 'Proof it really happened', body: 'After a payout, every transaction hash is listed in full with explorer links, and your browser reads Base Sepolia itself: the USDC Transfer event, the wallet’s balance and zkVerify’s published root.' },
   { target: 'manual', title: 'Or bring your own receipt', body: 'Step by step: register an inbox and wallet, drop a receipt saved as .eml, prove it in the tab, then submit. The email itself never leaves your browser.' },
   { target: 'tab-verify', title: 'Check any payout yourself', body: 'Paste a payout transaction and your browser recomputes the zkVerify statement and asks zkVerify’s contract on Base whether it was verified. No trust in Tremor needed.' },
   { target: 'tab-activity', title: 'See recent claims', body: 'Public fields only: merchant, amount, status, and a short commitment instead of a name or inbox.' },
