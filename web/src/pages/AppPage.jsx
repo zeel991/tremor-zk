@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   Waveform, IdentificationCard, Envelope, Cpu, PaperPlaneTilt, CheckCircle, XCircle, WarningCircle,
-  UploadSimple, DownloadSimple, ArrowRight, ArrowSquareOut, MagnifyingGlass, ListBullets, CircleNotch, Copy,
+  UploadSimple, DownloadSimple, ArrowRight, ArrowSquareOut, MagnifyingGlass, ListBullets, CircleNotch, Copy, Compass,
 } from '@phosphor-icons/react';
 import { Seismograph } from '../components/Seismograph.jsx';
+import { Tour, TourPrompt } from '../components/Tour.jsx';
 import { loadConfig, CONFIG } from '../lib/config.js';
 import { computeToCommit, proveInWorker } from '../lib/prover.js';
 import { resolveKey } from '../lib/keys.js';
@@ -110,21 +111,24 @@ const PUBS = [
 ];
 
 /* ---------------- shell ---------------- */
-function Shell({ tab, setTab, children }) {
+function Shell({ tab, setTab, onGuide, children }) {
   const tabs = [['prove', 'Prove', Cpu], ['verify', 'Verify a payout', MagnifyingGlass], ['activity', 'Activity', ListBullets]];
   return (
     <div className="min-h-[100dvh] [background:radial-gradient(70%_45%_at_100%_100%,color-mix(in_srgb,var(--ember)_22%,transparent),transparent_70%),var(--bg)] bg-fixed">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-bg/80 backdrop-blur-md">
         <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 md:grid-cols-[1fr_auto_1fr] md:px-6">
           <a href={HOME_URL} className="flex items-center gap-4"><span className="flex items-center gap-2 text-[1.02rem] font-medium tracking-tight"><Waveform size={20} weight="bold" className="text-accent" />tremor</span><span className="micro hidden leading-tight text-ink-3 lg:block">Prove a<br />receipt</span></a>
-          <nav className="flex justify-center gap-1 rounded-full border border-ink/40 p-1">
+          <nav data-tour="tabs" className="flex justify-center gap-1 rounded-full border border-ink/40 p-1">
             {tabs.map(([id, label, Icon]) => (
-              <button key={id} onClick={() => setTab(id)} aria-label={label} className={`micro flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${tab === id ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:text-ink'}`}>
+              <button key={id} data-tour={`tab-${id}`} onClick={() => setTab(id)} aria-label={label} className={`micro flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${tab === id ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:text-ink'}`}>
                 <Icon size={13} weight="bold" className="sm:hidden" /><span className={`box hidden sm:inline-block ${tab === id ? '!border-accent-ink !bg-accent-ink' : ''}`} /><span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </nav>
-          <div className="micro hidden justify-self-end text-ink-3 lg:block">{CONFIG.network}</div>
+          <div className="flex items-center gap-4 justify-self-end">
+            <span data-tour="network" className="micro hidden text-ink-3 lg:block">{CONFIG.network}</span>
+            <button onClick={onGuide} data-tour="guide" aria-label="Open the guide" className="micro flex items-center gap-2 rounded-full border border-ink/40 px-3 py-2 text-ink-2 transition-colors hover:border-ink hover:text-ink"><Compass size={14} weight="bold" /><span className="hidden sm:inline">Guide</span></button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-[1400px] px-4 py-8 md:px-6 md:py-12">{children}</main>
@@ -515,6 +519,12 @@ function Demo({ onIdentity, onVerify }) {
     } catch (e) { mark(k, 'bad'); setErr(friendly(e)); } finally { setRunning(false); }
   };
 
+  useEffect(() => {
+    const go = () => { if (!running) run(); };
+    window.addEventListener('tremor:run-demo', go);
+    return () => window.removeEventListener('tremor:run-demo', go);
+  });
+
   const secs = started ? Math.round(((running ? now : Date.now()) - started) / 1000) : 0;
   const allOk = st.paid === 'ok';
   return (
@@ -525,13 +535,13 @@ function Demo({ onIdentity, onVerify }) {
           <h2 className="display text-[clamp(1.9rem,4vw,3.4rem)]">Watch a receipt get paid.</h2>
           <p className="max-w-[52ch] text-ink-2">Tremor makes a throwaway inbox and wallet, asks the test merchant for a signed receipt, proves it in this tab, and follows it through zkVerify to a real USDC payout on Base Sepolia. No wallet, no gas, nothing to install.</p>
           <div className="flex flex-wrap items-center gap-4">
-            <button onClick={run} disabled={running} className="btn btn-primary">{running ? <><CircleNotch size={18} className="animate-spin" /> Running · {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</> : allOk ? 'Run it again' : <>Run the full demo <ArrowRight size={18} weight="bold" /></>}</button>
+            <button data-tour="demo-run" onClick={run} disabled={running} className="btn btn-primary">{running ? <><CircleNotch size={18} className="animate-spin" /> Running · {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</> : allOk ? 'Run it again' : <>Run the full demo <ArrowRight size={18} weight="bold" /></>}</button>
             <span className="text-sm text-ink-3">About 5 minutes, mostly zkVerify aggregating to Base. Keep this tab open.</span>
           </div>
           {err && <Status kind="bad">{err}</Status>}
           {allOk && <Status kind="ok">Paid. Every step above is on a public chain: open the links, or verify the payout yourself.</Status>}
         </div>
-        <ol className="grid content-start rounded-[14px] border border-line p-2">
+        <ol data-tour="demo-steps" className="grid content-start rounded-[14px] border border-line p-2">
           {DEMO.map(([k, label]) => (
             <li key={k} className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm">
               <span className="mt-0.5 shrink-0">
@@ -559,7 +569,7 @@ function Prove({ onVerify }) {
     <>
     <Demo onIdentity={(id) => { setIdentity(id); setReceipt(null); setProof(null); setStep('receipt'); }} onVerify={onVerify} />
     <div className="micro mb-4 text-ink-3">Or step by step, with your own receipt</div>
-    <div className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
+    <div data-tour="manual" className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
       <aside className="md:sticky md:top-24 md:self-start"><Rail step={step} done={done} go={setStep} /></aside>
       <div>
         {step === 'identity' && <IdentityStep identity={identity} onDone={(id) => { setIdentity(id); setReceipt(null); setProof(null); setStep('receipt'); }} />}
@@ -641,14 +651,33 @@ function Activity() {
   );
 }
 
+const TOUR_KEY = 'tremor.tour.v1';
+const TOUR = [
+  { title: 'Welcome to Tremor', body: 'Tremor pays an expense only when a zero-knowledge proof shows the merchant’s own email signature covers the total. This guide takes about 30 seconds.' },
+  { target: 'tabs', title: 'Three places to go', body: 'Prove is where receipts get proven and paid. Verify a payout lets anyone check a payment on chain. Activity lists recent claims.' },
+  { target: 'demo-run', title: 'The fastest way in', body: 'One click runs everything with a signed sample receipt: no wallet, no gas, nothing to install. The USDC goes to a throwaway wallet made for you.' },
+  { target: 'demo-steps', title: 'Follow every step', body: 'Each step ticks off as it happens and links to its transaction on zkVerify and Base. A full run takes about 5 minutes, mostly zkVerify aggregating to Base.' },
+  { target: 'manual', title: 'Or bring your own receipt', body: 'Step by step: register an inbox and wallet, drop a receipt saved as .eml, prove it in the tab, then submit. The email itself never leaves your browser.' },
+  { target: 'tab-verify', title: 'Check any payout yourself', body: 'Paste a payout transaction and your browser recomputes the zkVerify statement and asks zkVerify’s contract on Base whether it was verified. No trust in Tremor needed.' },
+  { target: 'tab-activity', title: 'See recent claims', body: 'Public fields only: merchant, amount, status, and a short commitment instead of a name or inbox.' },
+  { target: 'network', title: 'Testnet today', body: 'Proofs are verified on zkVerify’s Volta testnet and paid in test USDC on Base Sepolia. Mainnet follows once zkVerify enables the sound ZK proof type there.' },
+  { target: 'guide', title: 'Ready when you are', body: 'You can reopen this guide any time from here. Start the demo now?', cta: 'Run the demo', run: true },
+];
+
 export default function AppPage() {
+  const [tour, setTour] = useState(false);
+  const [prompt, setPrompt] = useState(false);
+  const seenTour = () => { try { return localStorage.getItem(TOUR_KEY) === '1'; } catch { return true; } };
+  const markSeen = () => { try { localStorage.setItem(TOUR_KEY, '1'); } catch {} };
+  const startTour = () => { markSeen(); setPrompt(false); setTab('prove'); setTimeout(() => setTour(true), 250); };
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState(() => (location.hash === '#verify' ? 'verify' : location.hash === '#activity' ? 'activity' : 'prove'));
   const [verifyTx, setVerifyTx] = useState(null);
   useEffect(() => { document.title = 'Tremor app'; loadConfig().then(() => setReady(true)); }, []);
+  useEffect(() => { if (ready && !seenTour()) setPrompt(true); }, [ready]);
   useEffect(() => { history.replaceState(null, '', tab === 'prove' ? APP_BASE : `${APP_BASE}#${tab}`); }, [tab]);
   return (
-    <Shell tab={tab} setTab={setTab}>
+    <Shell tab={tab} setTab={setTab} onGuide={startTour}>
       {!ready ? <div className="h-64 animate-pulse rounded-2xl bg-bg-2" /> : (
         <AnimatePresence mode="wait">
           <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -658,6 +687,8 @@ export default function AppPage() {
           </motion.div>
         </AnimatePresence>
       )}
+      <Tour steps={TOUR} open={tour} onClose={() => setTour(false)} onFinish={(st) => { if (st?.run) setTimeout(() => window.dispatchEvent(new Event('tremor:run-demo')), 300); }} />
+      <TourPrompt show={prompt && !tour} onStart={startTour} onDismiss={() => { markSeen(); setPrompt(false); }} />
     </Shell>
   );
 }
