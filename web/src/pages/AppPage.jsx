@@ -34,6 +34,19 @@ async function api(path, body) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** The agent answers 502/503 when a Base Sepolia RPC read fails, before it records anything, so these
+ *  calls are safe to repeat. Retry a few times so a passing RPC hiccup never reaches the user. */
+async function apiRetry(path, body, tries = 4) {
+  for (let n = 1; ; n++) {
+    try { return await api(path, body); }
+    catch (e) {
+      const transient = e.status === 502 || e.status === 503 || e.status === undefined;
+      if (!transient || n >= tries) throw e;
+      await sleep(1500 * n);
+    }
+  }
+}
 const randHex = (n) => hex(crypto.getRandomValues(new Uint8Array(n)));
 
 /** Wait until a Base Sepolia tx is mined, so anything dated after this moment is after it on chain too. */
@@ -52,7 +65,7 @@ async function waitForTx(hash, timeoutMs = 90000) {
 /** Register a commitment with the sandbox vault and wait for it to be mined (409 = already registered). */
 async function registerId(id) {
   try {
-    const r = await api('/api/register', { vaultId: 0, toCommit: '0x' + BigInt(id.toCommit).toString(16), wallet: id.wallet });
+    const r = await apiRetry('/api/register', { vaultId: 0, toCommit: '0x' + BigInt(id.toCommit).toString(16), wallet: id.wallet });
     if (r.txHash) await waitForTx(r.txHash);
     return { ...id, registered: true, registerTx: r.txHash };
   } catch (e) {
@@ -398,7 +411,7 @@ function SubmitStep({ proof }) {
   };
   const submit = async () => {
     setBusy(true); setRes(null);
-    try { const r = await api('/api/claim', body); setRes({ ok: true, ...r }); if (r.claimId) follow(r.claimId); }
+    try { const r = await apiRetry('/api/claim', body); setRes({ ok: true, ...r }); if (r.claimId) follow(r.claimId); }
     catch (e) {
       setRes({ ok: false, error: friendly(e) });
     } finally { setBusy(false); }
@@ -575,7 +588,7 @@ function Demo({ onIdentity, onVerify }) {
       mark(k, 'ok', id.registerTx ? <TxLink href={`${CONFIG.explorer}/tx/${id.registerTx}`}>registerFor tx {short(id.registerTx)}</TxLink> : 'already registered');
 
       k = 'rcpt'; mark(k, 'run');
-      const eml = await api('/api/sample-receipt', { to: id.inbox, amount: 25 });
+      const eml = await apiRetry('/api/sample-receipt', { to: id.inbox, amount: 25 });
       mark(k, 'ok', 'Tremor Test Merchant · ₹25.00');
 
       k = 'dkim'; mark(k, 'run');
@@ -589,7 +602,7 @@ function Demo({ onIdentity, onVerify }) {
       mark(k, 'ok', `UltraHonk ZK, ${p.proof.length.toLocaleString()} bytes in ${((performance.now() - t0) / 1000).toFixed(1)} s, verified locally`);
 
       k = 'agent'; mark(k, 'run');
-      const res = await api('/api/claim', { vaultId: 0, circuit: circuit === 'receipt_rsa1024' ? 'rsa1024' : 'rsa2048', proof: hex(p.proof), pubs: p.publicInputs });
+      const res = await apiRetry('/api/claim', { vaultId: 0, circuit: circuit === 'receipt_rsa1024' ? 'rsa1024' : 'rsa2048', proof: hex(p.proof), pubs: p.publicInputs });
       if (res.decision !== 'APPROVE') throw new Error(`Agent decision ${res.decision}${res.reasons?.length ? `: ${res.reasons.join(', ')}` : ''}`);
       mark(k, 'ok', res.explanation || 'APPROVE');
 
