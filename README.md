@@ -49,9 +49,9 @@ The agent's API refuses any field other than `{vaultId, circuit, proof, pubs, no
 
 ## Why zkVerify, and which proof type
 - Proofs are UltraHonk ZK made with bb ≥ 5. They are submitted as zkVerify's **`V5_0`** flavour, the one zkVerify's own verifier source calls sound for ZK.
-  - It marks the older ZK flavours (`V0_84`, `V3_0`, `Legacy`) as deprecated and unsound, because of a pre-fix SmallSubgroupIPA bug.
+  - It marks the older ZK flavours (`V0_84`, `V3_0`, `Legacy`) as deprecated and unsound, because of a pre-fix SmallSubgroupIPA bug: ["sound only from bb v5.0.0"](https://github.com/zkVerify/zkVerify/blob/0f1f24dad6c6/verifiers/ultrahonk/src/lib.rs#L132-L135) (`verifiers/ultrahonk/src/lib.rs`, 2026-11-02).
   - Runtime 2.1.0 rejects them.
-- `V5_0` is live on the Volta testnet (runtime 2.1.0). zkVerify mainnet was still on 2.0.0 as of 2026-11-15. So ReceiptProof runs on **Volta → Base Sepolia** and switches to mainnet by config once `specVersion ≥ 2001000`.
+- `V5_0` is live on the Volta testnet (runtime 2.1.0). zkVerify mainnet still reports runtime 2.0.0 (`state_getRuntimeVersion`, checked 2026-11-22), so a UltraHonk ZK proof on mainnet today can only use one of those deprecated flavours. That's why Tremor runs on **Volta → Base Sepolia**, and switches to mainnet by config once `specVersion ≥ 2001000`.
 - We deliberately don't fall back to an unsound or non-private flavour.
 - The vault checks the zkVerify aggregation on Base. The leaf is `keccak(keccak("ultrahonk") ‖ vkHash ‖ versionHash ‖ keccak(pubs))`. The vkHash rule is confirmed against Volta's `vk_hash_ultrahonk` RPC.
 
