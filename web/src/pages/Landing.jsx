@@ -358,7 +358,7 @@ function Trust() {
           <h2 className="display text-[clamp(4.2rem,15vw,13rem)]"><BlurWord text="Trust" /></h2>
           <span className="micro mt-3 rounded-full border border-paper-line px-2.5 py-1 text-paper-ink-2">04</span>
         </div>
-        <p className="mt-6 max-w-[48ch] text-lg text-paper-ink-2">Built so nobody has to take our word for it. 211 tests across the circuit, the contract and the agent.</p>
+        <p className="mt-6 max-w-[48ch] text-lg text-paper-ink-2">Built so nobody has to take our word for it. 216 tests across the circuit, the contract and the agent.</p>
       </div>
       <div className="dash-t mx-auto grid max-w-[1320px] md:grid-cols-2">
         {TRUST.map(([tag, t, d], k) => (
@@ -381,7 +381,7 @@ const FAQ = [
   ['What does it not show?', 'Whether the purchase was for business, whether you paid personally, or whether it was refunded later. Your company’s policy and normal audit still cover those.'],
   ['Who decides which merchant keys count?', 'Each company’s vault keeps its own list. New keys activate after 24 hours, with the full key on chain so anyone can compare it with DNS. These merchants don’t use DNSSEC yet, so this can’t be fully trustless today.'],
   ['Which merchants work?', 'Any merchant whose receipt layout has a template. The sandbox uses a Tremor test merchant. Uber, Swiggy, Zomato and Amazon.in templates are being checked against real receipts.'],
-  ['Is this on mainnet?', 'Not yet. The sound ZK proof type runs on zkVerify’s Volta testnet today. Tremor switches to mainnet when zkVerify enables it there.'],
+  ['Is this on mainnet?', 'Not yet. It runs end to end on testnet today: proofs verified on zkVerify’s Volta and paid in USDC by the vault on Base Sepolia. Tremor switches to mainnet when zkVerify enables the sound ZK proof type there.'],
 ];
 
 function Faq() {
@@ -427,7 +427,7 @@ function FinalCta() {
           <h2 className="display mt-8 max-w-[14ch] text-[clamp(3.2rem,8.4vw,8.5rem)]">Try it with a signed sample.</h2>
           <div className="mt-12 flex flex-wrap items-center gap-3">
             <Magnetic href={APP} className="btn btn-primary">Prove a receipt <ArrowRight size={16} weight="bold" /></Magnetic>
-            <span className="max-w-[40ch] text-sm text-ink-2">The sandbox signs a test receipt to your inbox. You check it and prove it in your browser.</span>
+            <span className="max-w-[40ch] text-sm text-ink-2">One click: the test merchant signs a receipt, your browser proves it, and the vault pays real testnet USDC on Base Sepolia.</span>
           </div>
         </Reveal>
         <footer className="mt-32 grid gap-6 border-t border-white/15 pt-8 text-sm text-ink-2 md:grid-cols-3">

@@ -32,6 +32,77 @@ async function api(path, body) {
   return data;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const randHex = (n) => hex(crypto.getRandomValues(new Uint8Array(n)));
+
+/** Wait until a Base Sepolia tx is mined, so anything dated after this moment is after it on chain too. */
+async function waitForTx(hash, timeoutMs = 90000) {
+  const t = Date.now();
+  while (Date.now() - t < timeoutMs) {
+    try {
+      const j = await fetch(CONFIG.rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [hash] }) }).then((r) => r.json());
+      if (j.result) { if (j.result.status !== '0x1') throw new Error('The registration transaction reverted.'); return j.result; }
+    } catch (e) { if (/reverted/.test(e.message)) throw e; }
+    await sleep(1500);
+  }
+  throw new Error('Registration is taking longer than usual. Try again in a minute.');
+}
+
+/** Register a commitment with the sandbox vault and wait for it to be mined (409 = already registered). */
+async function registerId(id) {
+  try {
+    const r = await api('/api/register', { vaultId: 0, toCommit: '0x' + BigInt(id.toCommit).toString(16), wallet: id.wallet });
+    if (r.txHash) await waitForTx(r.txHash);
+    return { ...id, registered: true, registerTx: r.txHash };
+  } catch (e) {
+    if (e.status === 409) return { ...id, registered: true };
+    throw e;
+  }
+}
+
+async function makeIdentity(inbox, wallet, prev) {
+  const addr = inbox.trim().toLowerCase();
+  const salt = prev && prev.inbox === addr ? prev.salt : newSalt();
+  const toCommit = await computeToCommit(addr, salt);
+  return { inbox: addr, wallet: wallet.trim(), salt, toCommit: toCommit.toString() };
+}
+
+/** Parse an .eml, find the merchant's key, verify DKIM and match a template. All on this device. */
+async function checkReceipt(raw) {
+  const parsed = parseEmail(raw);
+  const sig = parsed.sigs.find((s) => s.tags.a === 'rsa-sha256');
+  if (!sig) throw new Error('No rsa-sha256 DKIM signature in this email.');
+  const key = await resolveKey(sig.tags.d, sig.tags.s);
+  if (!key.modulus) throw new Error(`No DKIM key found for ${sig.tags.d} (selector ${sig.tags.s}).`);
+  const dkim = verifyWithModulus(parsed, sig, key.modulus);
+  const body = new TextDecoder('latin1').decode(dkim.body);
+  const tpl = Object.entries(TEMPLATES).find(([, t]) => body.includes(t.anchor));
+  if (!tpl) throw new Error('This merchant’s receipt layout isn’t supported yet.');
+  const amountText = /([0-9][0-9,]*(?:\.[0-9]{2})?)/.exec(body.split(tpl[1].anchor)[1] || '')?.[1] || '?';
+  const hdr = (n) => parsed.headers.find(([k]) => k.toLowerCase() === n)?.[1]?.trim() || '';
+  return {
+    dkim, templateId: +tpl[0], merchant: tpl[1].name, verified: tpl[1].verified,
+    domain: sig.tags.d, selector: sig.tags.s, bits: dkim.modulusLength,
+    amountText: `${tpl[1].currency === 840 ? '$' : '₹'}${amountText}`, to: hdr('to'), date: hdr('date'), sources: key.sources,
+  };
+}
+
+/** How far a claim has got: 1 agent, 2 queued, 3 verified on zkVerify, 4 aggregated to Base, 5 paid. */
+function claimStage(c) {
+  if (!c) return 0;
+  if (c.status === 'PAID') return 5;
+  if (c.status === 'AGGREGATED' || c.status === 'SETTLE_SENT' || c.kurierStatus === 'Aggregated') return 4;
+  if (['IncludedInBlock', 'Finalized', 'AggregationPending'].includes(c.kurierStatus)) return 3;
+  return c.kurierStatus ? 2 : 1;
+}
+const isTerminal = (c) => /PAID|FAIL|REJECT|FLAG/.test(c?.status || '');
+
+function friendly(e) {
+  if (e?.status === 429) return 'The sandbox’s daily limit for this network has been reached. Please try again tomorrow, or use your own receipt below.';
+  if (e?.status === 502 || e?.status === 503) return `The agent couldn’t reach Base Sepolia just now (${e.data?.error || e.status}). Please try again in a moment.`;
+  return e?.data?.error ? `${e.data.error}${e.data.reasons?.length ? `: ${e.data.reasons.join(', ')}` : ''}` : String(e?.message || e);
+}
+
 const PUBS = [
   ['pubkey_hash', 'Merchant DKIM key, hashed'], ['nullifier', 'Salted, one claim per email'], ['template_id', 'Merchant layout matched'],
   ['amount_minor', 'The proven total'], ['currency', 'ISO 4217 code'], ['sent_at', 'Signed Date header'],
@@ -126,17 +197,13 @@ function IdentityStep({ identity, onDone }) {
     setErr(er); if (Object.keys(er).length) return;
     setBusy(true); setMsg(['info', 'Computing your commitment with the same Noir code the circuit uses…']);
     try {
-      const addr = inbox.trim().toLowerCase();
-      const salt = identity && identity.inbox === addr ? identity.salt : newSalt();
-      const toCommit = await computeToCommit(addr, salt);
-      const id = { inbox: addr, wallet: wallet.trim(), salt, toCommit: toCommit.toString() };
+      let id = await makeIdentity(inbox, wallet, identity);
+      setMsg(['info', 'Registering it with the sandbox vault on Base Sepolia (a few seconds)…']);
+      id = await registerId(id);
       saveId(id);
-      let reg = 'local';
-      try { await api('/api/register', { vaultId: 0, toCommit: '0x' + toCommit.toString(16), wallet: id.wallet }); reg = 'registered'; }
-      catch (e2) { reg = /AlreadyRegistered/i.test(String(e2.message)) || e2.status === 409 ? 'registered' : 'local'; }
-      setMsg(['ok', reg === 'registered' ? 'Commitment registered with the sandbox vault.' : 'Commitment ready. Sandbox vault registration opens when the testnet vault is live.']);
+      setMsg(['ok', 'Commitment registered with the sandbox vault.']);
       onDone(id);
-    } catch (e3) { setMsg(['bad', String(e3.message || e3)]); } finally { setBusy(false); }
+    } catch (e3) { setMsg(['bad', friendly(e3)]); } finally { setBusy(false); }
   };
   return (
     <Panel title="Who gets paid" sub="Tremor binds a receipt to your inbox without ever learning it. Your browser makes a secret salt and publishes only a commitment.">
@@ -152,7 +219,8 @@ function IdentityStep({ identity, onDone }) {
           {err.wallet ? <span className="err">{err.wallet}</span> : <span className="help">The proof binds this address, so a stolen proof pays nobody else.</span>}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button className="btn btn-primary" disabled={busy}>{busy ? <CircleNotch size={18} className="animate-spin" /> : null} Create commitment</button>
+          <button className="btn btn-primary" disabled={busy}>{busy ? <CircleNotch size={18} className="animate-spin" /> : null} Register</button>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { setInbox(`judge-${randHex(3).slice(2)}@tremor.in`); setWallet(randHex(20)); }}>Use demo details</button>
           {identity && <span className="mono text-xs text-ink-3">current: {short('0x' + BigInt(identity.toCommit).toString(16))}</span>}
         </div>
         {msg && <Status kind={msg[0]}>{msg[1]}</Status>}
@@ -194,30 +262,13 @@ function ReceiptStep({ identity, onDone }) {
   const fileRef = useRef(null);
   const use = useCallback(async (raw) => {
     setRec(null); setMsg(['info', 'Checking the DKIM signature on this device…']);
-    try {
-      const parsed = parseEmail(raw);
-      const sig = parsed.sigs.find((s) => s.tags.a === 'rsa-sha256');
-      if (!sig) throw new Error('No rsa-sha256 DKIM signature in this email.');
-      const key = await resolveKey(sig.tags.d, sig.tags.s);
-      if (!key.modulus) throw new Error(`No DKIM key found for ${sig.tags.d} (selector ${sig.tags.s}).`);
-      const dkim = verifyWithModulus(parsed, sig, key.modulus);
-      const body = new TextDecoder('latin1').decode(dkim.body);
-      const tpl = Object.entries(TEMPLATES).find(([, t]) => body.includes(t.anchor));
-      if (!tpl) throw new Error('This merchant’s receipt layout isn’t supported yet.');
-      const amountText = /([0-9][0-9,]*(?:\.[0-9]{2})?)/.exec(body.split(tpl[1].anchor)[1] || '')?.[1] || '?';
-      const hdr = (n) => parsed.headers.find(([k]) => k.toLowerCase() === n)?.[1]?.trim() || '';
-      const r = {
-        dkim, templateId: +tpl[0], merchant: tpl[1].name, verified: tpl[1].verified,
-        domain: sig.tags.d, selector: sig.tags.s, bits: dkim.modulusLength,
-        amountText: `${tpl[1].currency === 840 ? '$' : '₹'}${amountText}`, to: hdr('to'), date: hdr('date'), sources: key.sources,
-      };
-      setRec(r); setMsg(null); onDone(r);
-    } catch (e) { setMsg(['bad', String(e.message || e)]); }
+    try { const r = await checkReceipt(raw); setRec(r); setMsg(null); onDone(r); }
+    catch (e) { setMsg(['bad', String(e.message || e)]); }
   }, [onDone]);
   const sample = async () => {
     setBusy(true);
     try { const eml = await api('/api/sample-receipt', { to: identity.inbox }); await use(typeof eml === 'string' ? eml : eml.eml); }
-    catch (e) { setMsg(['bad', e.status === 429 ? 'Sample limit reached for today on this network. Try your own receipt.' : `Couldn't get a sample receipt: ${e.message}`]); }
+    catch (e) { setMsg(['bad', friendly(e)]); }
     finally { setBusy(false); }
   };
   const onFile = async (f) => { if (f) use(new Uint8Array(await f.arrayBuffer())); };
@@ -345,15 +396,14 @@ function SubmitStep({ proof }) {
     setBusy(true); setRes(null);
     try { const r = await api('/api/claim', body); setRes({ ok: true, ...r }); if (r.claimId) follow(r.claimId); }
     catch (e) {
-      if (e.status === 503 || e.status === 502 || (e.status === 404 && /UNKNOWN_VAULT/.test(String(e.data?.error)))) setRes({ ok: false, offline: true, error: e.data?.error || e.message });
-      else setRes({ ok: false, error: e.data?.error || e.message, reasons: e.data?.reasons });
+      setRes({ ok: false, error: friendly(e) });
     } finally { setBusy(false); }
   };
   const follow = async (id) => {
-    try { const c = await api(`/api/claim/${id}`); setClaim(c); if (!/PAID|FAIL|REJECT/.test(c.status || '')) setTimeout(() => follow(id), 6000); }
+    try { const c = await api(`/api/claim/${id}`); setClaim(c); if (!isTerminal(c)) setTimeout(() => follow(id), 6000); }
     catch { setTimeout(() => follow(id), 8000); }
   };
-  const reached = claim ? (claim.status === 'PAID' ? 5 : Math.max(1, STAGES.findIndex(([k]) => k === claim.kurierStatus) + 1)) : res?.ok ? 1 : 0;
+  const reached = claim ? claimStage(claim) : res?.ok ? 1 : 0;
   return (
     <Panel title="Submit for payment" sub="The agent checks your company's policy and the vault's rules first, then sends the proof to zkVerify. The vault pays only after zkVerify confirms it.">
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -368,8 +418,8 @@ function SubmitStep({ proof }) {
             <button onClick={download} className="btn btn-ghost"><DownloadSimple size={18} /> Download claim</button>
           </div>
           {res?.ok && <Status kind={res.decision === 'REJECT' ? 'bad' : 'ok'}>Decision: {res.decision}{res.reasons?.length ? ` (${res.reasons.join(', ')})` : ''}{res.explanation ? `. ${res.explanation}` : ''}</Status>}
-          {res && !res.ok && res.offline && <Status kind="warn">The testnet settlement vault isn't live yet, so this proof can't be paid today. Your proof is valid: download the claim and submit it when the vault opens.</Status>}
-          {res && !res.ok && !res.offline && <Status kind="bad">{res.error}{res.reasons ? `: ${res.reasons.join(', ')}` : ''}</Status>}
+          {res && !res.ok && <Status kind="bad">{res.error}</Status>}
+          {claim && /FAIL|FLAG/.test(claim.status) && <Status kind="bad">Claim {claim.status}{claim.error ? `: ${claim.error}` : ''}</Status>}
         </div>
         <ol className="grid content-start gap-0 rounded-[14px] border border-line p-5">
           {STAGES.map(([, label], i) => (
@@ -386,13 +436,129 @@ function SubmitStep({ proof }) {
   );
 }
 
-function Prove() {
+const DEMO = [
+  ['id', 'Create a throwaway inbox and wallet'],
+  ['reg', 'Register them with the sandbox vault'],
+  ['rcpt', 'Get a receipt signed by the test merchant'],
+  ['dkim', 'Check its DKIM signature on this device'],
+  ['prove', 'Prove it in this tab'],
+  ['agent', 'Agent checks policy and the vault'],
+  ['zkv', 'Verified on zkVerify'],
+  ['agg', 'Aggregated to Base'],
+  ['paid', 'USDC paid by the vault'],
+];
+
+function TxLink({ href, children }) {
+  return <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">{children}<ArrowSquareOut size={13} /></a>;
+}
+
+/** One click: identity → registration → signed sample → DKIM → proof → agent → zkVerify → Base → USDC. */
+function Demo({ onIdentity, onVerify }) {
+  const [st, setSt] = useState({});
+  const [info, setInfo] = useState({});
+  const [err, setErr] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [started, setStarted] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [running]);
+  const mark = (k, v, extra) => { setSt((s) => ({ ...s, [k]: v })); if (extra !== undefined) setInfo((i) => ({ ...i, [k]: extra })); };
+
+  const run = async () => {
+    setRunning(true); setErr(null); setSt({}); setInfo({}); setStarted(Date.now());
+    let k = 'id';
+    try {
+      mark(k, 'run');
+      let id = await makeIdentity(`judge-${randHex(3).slice(2)}@tremor.in`, randHex(20), null);
+      id.demo = true;
+      mark(k, 'ok', <span className="mono">{id.inbox} → {short(id.wallet)}</span>);
+
+      k = 'reg'; mark(k, 'run');
+      id = await registerId(id); saveId(id); onIdentity(id);
+      mark(k, 'ok', id.registerTx ? <TxLink href={`${CONFIG.explorer}/tx/${id.registerTx}`}>registerFor tx {short(id.registerTx)}</TxLink> : 'already registered');
+
+      k = 'rcpt'; mark(k, 'run');
+      const eml = await api('/api/sample-receipt', { to: id.inbox, amount: 25 });
+      mark(k, 'ok', 'Tremor Test Merchant · ₹25.00');
+
+      k = 'dkim'; mark(k, 'run');
+      const r = await checkReceipt(typeof eml === 'string' ? eml : eml.eml);
+      mark(k, 'ok', `d=${r.domain} · s=${r.selector} · RSA-${r.bits}`);
+
+      k = 'prove'; mark(k, 'run');
+      const t0 = performance.now();
+      const { inputs, circuit } = buildInputs(r.dkim, { templateId: r.templateId, salt: id.salt, recipient: id.wallet, vaultId: 0 });
+      const p = await proveInWorker(inputs, () => {}, { circuit });
+      mark(k, 'ok', `UltraHonk ZK, ${p.proof.length.toLocaleString()} bytes in ${((performance.now() - t0) / 1000).toFixed(1)} s, verified locally`);
+
+      k = 'agent'; mark(k, 'run');
+      const res = await api('/api/claim', { vaultId: 0, circuit: circuit === 'receipt_rsa1024' ? 'rsa1024' : 'rsa2048', proof: hex(p.proof), pubs: p.publicInputs });
+      if (res.decision !== 'APPROVE') throw new Error(`Agent decision ${res.decision}${res.reasons?.length ? `: ${res.reasons.join(', ')}` : ''}`);
+      mark(k, 'ok', res.explanation || 'APPROVE');
+
+      k = 'zkv'; mark(k, 'run');
+      for (;;) {
+        const c = await api(`/api/claim/${res.claimId}`).catch(() => null);
+        if (c) {
+          const s = claimStage(c);
+          if (s >= 3) mark('zkv', 'ok', c.zkvTx ? <TxLink href={`${CONFIG.zkvExplorer}/extrinsic/${c.zkvTx}`}>zkVerify tx {short(c.zkvTx)}</TxLink> : undefined);
+          if (s === 3) mark('agg', 'run', 'zkVerify publishes aggregations to Base every few minutes');
+          if (s >= 4) { mark('agg', 'ok', `aggregation ${c.aggregationId}`); mark('paid', 'run', 'relayer is sending vault.claim'); }
+          if (c.status === 'PAID') {
+            mark('paid', 'ok', <span className="flex flex-wrap items-center gap-3"><TxLink href={`${CONFIG.explorer}/tx/${c.baseTx}`}>Base tx {short(c.baseTx)}</TxLink><button onClick={() => onVerify(c.baseTx)} className="text-accent underline">verify this payout</button></span>);
+            break;
+          }
+          k = s >= 4 ? 'paid' : s >= 3 ? 'agg' : 'zkv';
+          if (/FAIL|REJECT|FLAG/.test(c.status)) throw new Error(`Claim ${c.status}${c.error ? `: ${c.error}` : ''}`);
+        }
+        await sleep(5000);
+      }
+    } catch (e) { mark(k, 'bad'); setErr(friendly(e)); } finally { setRunning(false); }
+  };
+
+  const secs = started ? Math.round(((running ? now : Date.now()) - started) / 1000) : 0;
+  const allOk = st.paid === 'ok';
+  return (
+    <section className="frame mb-8 overflow-hidden bg-bg p-6 md:p-8">
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] lg:gap-10">
+        <div className="grid content-start gap-5">
+          <span className="micro tag text-accent">One click · Volta → Base Sepolia</span>
+          <h2 className="display text-[clamp(1.9rem,4vw,3.4rem)]">Watch a receipt get paid.</h2>
+          <p className="max-w-[52ch] text-ink-2">Tremor makes a throwaway inbox and wallet, asks the test merchant for a signed receipt, proves it in this tab, and follows it through zkVerify to a real USDC payout on Base Sepolia. No wallet, no gas, nothing to install.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <button onClick={run} disabled={running} className="btn btn-primary">{running ? <><CircleNotch size={18} className="animate-spin" /> Running · {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</> : allOk ? 'Run it again' : <>Run the full demo <ArrowRight size={18} weight="bold" /></>}</button>
+            <span className="text-sm text-ink-3">About 5 minutes, mostly zkVerify aggregating to Base. Keep this tab open.</span>
+          </div>
+          {err && <Status kind="bad">{err}</Status>}
+          {allOk && <Status kind="ok">Paid. Every step above is on a public chain: open the links, or verify the payout yourself.</Status>}
+        </div>
+        <ol className="grid content-start rounded-[14px] border border-line p-2">
+          {DEMO.map(([k, label]) => (
+            <li key={k} className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm">
+              <span className="mt-0.5 shrink-0">
+                {st[k] === 'ok' ? <CheckCircle size={18} weight="fill" className="text-ok" /> : st[k] === 'run' ? <CircleNotch size={18} className="animate-spin text-accent" /> : st[k] === 'bad' ? <XCircle size={18} weight="fill" className="text-bad" /> : <span className="block size-[18px] rounded-full border border-line" />}
+              </span>
+              <span className="min-w-0">
+                <span className={st[k] ? 'text-ink' : 'text-ink-3'}>{label}</span>
+                {info[k] && <span className="mt-0.5 block break-words text-xs text-ink-3">{info[k]}</span>}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function Prove({ onVerify }) {
   const [identity, setIdentity] = useState(loadId);
   const [receipt, setReceipt] = useState(null);
   const [proof, setProof] = useState(null);
   const [step, setStep] = useState(identity ? 'receipt' : 'identity');
   const done = { identity: !!identity, receipt: !!receipt, proof: !!proof, submit: false };
   return (
+    <>
+    <Demo onIdentity={(id) => { setIdentity(id); setReceipt(null); setProof(null); setStep('receipt'); }} onVerify={onVerify} />
+    <div className="micro mb-4 text-ink-3">Or step by step, with your own receipt</div>
     <div className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
       <aside className="md:sticky md:top-24 md:self-start"><Rail step={step} done={done} go={setStep} /></aside>
       <div>
@@ -406,21 +572,24 @@ function Prove() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
 /* ---------------- verify + activity ---------------- */
-function Verify() {
-  const [tx, setTx] = useState('');
+function Verify({ initialTx }) {
+  const [tx, setTx] = useState(initialTx || '');
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const run = async (e) => {
-    e.preventDefault(); setErr(''); setRes(null);
-    if (!/^0x[0-9a-fA-F]{64}$/.test(tx.trim())) { setErr('Enter a 0x transaction hash (64 hex characters).'); return; }
+  const check = async (h) => {
+    setErr(''); setRes(null);
+    if (!/^0x[0-9a-fA-F]{64}$/.test(h.trim())) { setErr('Enter a 0x transaction hash (64 hex characters).'); return; }
     setBusy(true);
-    try { setRes(await verifyPayout(tx.trim())); } catch (e2) { setErr(e2.shortMessage || e2.message); } finally { setBusy(false); }
+    try { setRes(await verifyPayout(h.trim())); } catch (e2) { setErr(e2.shortMessage || e2.message); } finally { setBusy(false); }
   };
+  const run = (e) => { e.preventDefault(); check(tx); };
+  useEffect(() => { if (initialTx) check(initialTx); }, [initialTx]);
   return (
     <Panel title="Verify a payout yourself" sub="Paste a Tremor payout transaction. Your browser decodes it, recomputes the zkVerify statement from its public values and asks zkVerify's contract on Base whether that exact statement was verified.">
       <form onSubmit={run} className="flex flex-col gap-3 md:flex-row" noValidate>
@@ -475,6 +644,7 @@ function Activity() {
 export default function AppPage() {
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState(() => (location.hash === '#verify' ? 'verify' : location.hash === '#activity' ? 'activity' : 'prove'));
+  const [verifyTx, setVerifyTx] = useState(null);
   useEffect(() => { document.title = 'Tremor app'; loadConfig().then(() => setReady(true)); }, []);
   useEffect(() => { history.replaceState(null, '', tab === 'prove' ? APP_BASE : `${APP_BASE}#${tab}`); }, [tab]);
   return (
@@ -482,8 +652,8 @@ export default function AppPage() {
       {!ready ? <div className="h-64 animate-pulse rounded-2xl bg-bg-2" /> : (
         <AnimatePresence mode="wait">
           <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-            {tab === 'prove' && <Prove />}
-            {tab === 'verify' && <Verify />}
+            {tab === 'prove' && <Prove onVerify={(h) => { setVerifyTx(h); setTab('verify'); }} />}
+            {tab === 'verify' && <Verify initialTx={verifyTx} />}
             {tab === 'activity' && <Activity />}
           </motion.div>
         </AnimatePresence>

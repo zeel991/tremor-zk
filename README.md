@@ -8,6 +8,21 @@ Built for zkVerify Agent Games 2026 (Wildcard).
 
 > **Status (2026-11-21):** the site (tremor.in), the app (app.tremor.in), the agent Worker and the Base Sepolia sandbox vault are live. First end-to-end testnet payout (20 Nov 2026): a INR 25 sandbox receipt, proved with the same circuit the app runs, approved by the agent, verified on zkVerify Volta (tx `0x28b30606a26a241bff03f95d88948502a71210e1eef9d09f98b2830e8f248743`, aggregation 67329, domain 2) and paid 0.297619 USDC by the vault on Base Sepolia (tx `0xfa73d4cd4a065541ae5454f3a38f67d49201e19e3ec6282db38eadc3ac479d28`). Sandbox vault: `0xCDF6bdB3d70Eb86f8c5aC5a880c453a4eeA3bf50` (10-minute key/FX delays, locked; mainnet keeps 24 h).
 
+## For judges: try it in one click
+1. Open **https://app.tremor.in** and press **Run the full demo**. No wallet, no gas, nothing to install.
+2. Your browser creates a throwaway inbox and wallet, registers them with the sandbox vault, gets a receipt signed by the Tremor test merchant, checks its DKIM signature, and proves it in the tab (UltraHonk ZK).
+3. The agent approves it, Kurier submits it to zkVerify Volta, zkVerify aggregates it to Base Sepolia, and the vault pays USDC to the throwaway wallet. Each step links to its transaction. It takes about 5 minutes, mostly aggregation.
+4. Press **verify this payout**: your browser decodes the payout, recomputes the zkVerify statement leaf and checks it against zkVerify's contract on Base.
+
+Prefer your own receipt? Use the step-by-step flow below the demo and drop a `.eml`. Real merchants (Uber, Swiggy, Zomato, Amazon.in) need their templates and DKIM keys checked first, so only the test merchant pays today.
+
+| Live | Address |
+|---|---|
+| Sandbox vault (Base Sepolia, UUPS proxy) | `0xCDF6bdB3d70Eb86f8c5aC5a880c453a4eeA3bf50` |
+| zkVerify aggregation (Base Sepolia) | `0x0807C544D38aE7729f8798388d89Be6502A1e8A8`, domain 2 |
+| Agent | https://tremor-agent.agent-games-gatekeeper.workers.dev/api/agent |
+| First payout | zkVerify tx `0x28b30606…8743` (aggregation 67329) → Base tx `0xfa73d4cd…9d28` |
+
 ## The problem
 - Generative AI fakes receipt images in seconds. Expense-audit vendors report AI-generated receipts as a fast-growing share of fraud.
 - A photo or PDF can't prove where it came from. The emailed receipt can: Uber, Swiggy, Zomato and Amazon sign every mail with DKIM, an RSA signature over the headers and the body hash.
@@ -60,7 +75,7 @@ No trust in us or the agent is needed.
 
 ## Trust assumptions (honest version)
 - **DKIM key list.** Each vault's owner curates it.
-  - Keys activate after 24 h, the full modulus is stored on-chain, and the web app re-checks it against DNS and the zk-email archive.
+  - Keys activate after 24 h (the sandbox vault uses 10 minutes, fixed before its first key), the full modulus is stored on-chain, and the web app re-checks it against DNS and the zk-email archive.
   - The MVP merchants have no DNSSEC, so this can't be fully trustless today.
   - A wrong key only costs the vault owner.
 - **FX.** Non-USD receipts pay at the company's own policy rate, which is timelocked 24 h and public. There's no INR/USD oracle on Base.
@@ -110,5 +125,5 @@ node circuits/js/cli.mjs prove receipt.eml --identity receiptproof-identity.json
 | Part | Count | Notes |
 |---|---|---|
 | Circuit + JS libs | 28 | 14 attack cases: tampered body/amount, wrong key, swapped `To`, moved/short/long amount, wrong template, `s+n` malleability, wrong header field, tampered SHA state, bad date, overflow. Also the browser verifier → circuit path and the 1024-bit variant |
-| Contracts | 46 | Every revert path, a fuzz test, upgrades, sandbox registrar, the leaf on a real proof's public inputs, and 4 fork tests against zkVerify's real aggregation contract on Base Sepolia (aggregation 65470) |
-| Agent | 137 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration, and a **local anvil end-to-end run**: real proof → agent → real `claim` tx → USDC paid, then DUPLICATE and PAYEE_MISMATCH rejected (Kurier and the aggregator mocked) |
+| Contracts | 50 | Every revert path, a fuzz test, upgrades, sandbox registrar, the leaf on a real proof's public inputs, and 4 fork tests against zkVerify's real aggregation contract on Base Sepolia (aggregation 65470) |
+| Agent | 138 | Schema (email rejected), every pre-check, a policy table, poller lifecycle and retries, EIP-712, leaf, sample receipt → real circuit, sandbox registration, and a **local anvil end-to-end run**: real proof → agent → real `claim` tx → USDC paid, then DUPLICATE and PAYEE_MISMATCH rejected (Kurier and the aggregator mocked) |
