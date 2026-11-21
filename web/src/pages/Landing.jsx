@@ -172,7 +172,7 @@ function Hero() {
 
 const TRACK = [
   ['0', 'Bytes of your email sent'],
-  ['3.8 s', 'To prove in a browser'],
+  ['~16 s', 'To prove in a browser'],
   ['9', 'Public values, nothing else'],
 ];
 
@@ -307,7 +307,7 @@ function Line({ text }) {
 
 const STEPS = [
   ['Drop the email', 'Open the .eml in your browser. Its DKIM signature is checked against the merchant’s key, on your device.'],
-  ['Prove it in the tab', 'A Noir circuit proves the signature, the total, the date and your inbox. About 4 seconds with threads.'],
+  ['Prove it in the tab', 'A Noir circuit proves the signature, the total, the date and your inbox. About 15 seconds in a modern browser.'],
   ['zkVerify checks it', 'Only the proof and nine public values are submitted. zkVerify verifies it and aggregates the result to Base.'],
   ['The vault pays', 'A contract re-checks key, wallet, date, caps and nullifier, then sends USDC. No person in the loop.'],
 ];
