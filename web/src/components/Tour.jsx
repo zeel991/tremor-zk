@@ -38,8 +38,13 @@ export function Tour({ steps, open, onClose, onFinish }) {
     if (!open || !step) return;
     const r = step.target && rectOf(step.target);
     if (r) {
-      const off = r.top < 80 || r.top + r.height > window.innerHeight - 220;
-      if (off) r.el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      if (window.innerWidth < 640) {
+        // Phones: the card docks at the bottom, so put the target's top just under the header.
+        window.scrollTo({ top: Math.max(0, r.el.getBoundingClientRect().top + window.scrollY - 88), behavior: reduce ? 'auto' : 'smooth' });
+      } else {
+        const off = r.top < 80 || r.top + r.height > window.innerHeight - 220;
+        if (off) r.el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      }
     }
     measure();
     const t = setTimeout(measure, 380);
